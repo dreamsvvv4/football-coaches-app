@@ -1,0 +1,35 @@
+{
+  "name": "football-coaches-app",
+  "version": "1.0.0",
+  "description": "A comprehensive app for football coaches to manage teams, matches, and communication.",
+  "main": "index.js",
+  "scripts": {
+    "start": "react-native start",
+    "build": "react-native build",
+    "test": "jest"
+  },
+  "dependencies": {
+    "react": "^17.0.2",
+    "react-native": "^0.64.2",
+    "react-navigation": "^4.4.4",
+    "axios": "^0.21.1",
+    "socket.io-client": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^4.3.2",
+    "jest": "^27.0.6",
+    "babel-jest": "^27.0.6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/football-coaches-app.git"
+  },
+  "keywords": [
+    "football",
+    "coaches",
+    "app",
+    "management"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
