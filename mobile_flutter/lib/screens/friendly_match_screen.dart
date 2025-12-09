@@ -599,18 +599,41 @@ class _FriendliesHero extends StatelessWidget {
               const SizedBox(width: 18),
               _HeroMetric(label: 'Confirmados', value: '$accepted'),
               const Spacer(),
-              if (onCreate != null)
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: theme.colorScheme.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  onPressed: onCreate,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Nuevo amistoso'),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: theme.colorScheme.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
+                onPressed: () => Navigator.pushNamed(context, '/friendly_matches/create'),
+                icon: const Icon(Icons.add),
+                label: const Text('Nuevo amistoso'),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.white.withOpacity(0.7)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () => Navigator.pushNamed(context, '/friendly_matches/incoming'),
+                icon: const Icon(Icons.inbox),
+                label: const Text('Recibidas'),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.white.withOpacity(0.7)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () => Navigator.pushNamed(context, '/friendly_matches/outgoing'),
+                icon: const Icon(Icons.send),
+                label: const Text('Enviadas'),
+              ),
             ],
           ),
         ],

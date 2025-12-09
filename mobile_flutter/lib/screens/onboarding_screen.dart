@@ -316,7 +316,109 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // All legacy onboarding private builder methods removed
+
+  Widget _buildRoleStep() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('¿Cuál es tu rol?', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 16),
+          ..._availableRoles.map((role) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _RoleCard(
+                  option: role,
+                  isSelected: _selectedRole == role.id,
+                  onTap: () => _onRoleSelected(role.id),
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClubStep() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Selecciona tu club', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 16),
+          ..._clubs.map((club) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _ClubTile(
+                  club: club,
+                  isSelected: _selectedClubId == club.id,
+                  onTap: () => _onClubSelected(club.id),
+                ),
+              )),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _showAddClubDialog,
+            icon: const Icon(Icons.add),
+            label: const Text('Crear club'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeamStep() {
+    final selectedClub = _clubs.firstWhere(
+      (club) => club.id == _selectedClubId,
+      orElse: _ClubOption.empty,
+    );
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Selecciona tu equipo', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 16),
+          if (selectedClub.teams.isEmpty)
+            Text('Este club no tiene equipos. Crea uno para continuar.', style: Theme.of(context).textTheme.bodyMedium),
+          ...selectedClub.teams.map((team) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _TeamTile(
+                  team: team,
+                  isSelected: _selectedTeamId == team.id,
+                  onTap: () => _onTeamSelected(team.id),
+                ),
+              )),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _showAddTeamDialog,
+            icon: const Icon(Icons.add),
+            label: const Text('Crear equipo'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomNavigation() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          if (_currentPage > 0)
+            OutlinedButton(
+              onPressed: _previousPage,
+              child: const Text('Atrás'),
+            )
+          else
+            const SizedBox(width: 80),
+          ElevatedButton(
+            onPressed: _nextPage,
+            child: Text(_currentPage == 2 || (_shouldSkipTeamStep && _currentPage == 1) ? 'Finalizar' : 'Siguiente'),
+          ),
+        ],
+      ),
+    );
+  }
 
   String _generateId(String prefix) => '$prefix-${DateTime.now().microsecondsSinceEpoch}';
 }

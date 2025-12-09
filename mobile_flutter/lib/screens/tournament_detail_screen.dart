@@ -1,19 +1,53 @@
-  // All tournament private builder methods removed (hidden by feature flag)
-                                ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ),
-            ),
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+enum TournamentStatus { draft, active, completed, cancelled }
+enum TournamentType { roundRobin, knockout, mixed }
+enum FootballMode { football11, football7, futsal }
+enum MatchStatus { scheduled, inProgress, paused, completed, cancelled, postponed }
+
+class TournamentDetailScreen extends StatefulWidget {
+  final dynamic tournament;
+  final dynamic tournamentService;
+  const TournamentDetailScreen({Key? key, required this.tournament, required this.tournamentService}) : super(key: key);
+
+  @override
+  State<TournamentDetailScreen> createState() => _TournamentDetailScreenState();
+}
+
+class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
+
+    void _loadTournamentData() {
+      // TODO: Implementar lógica de recarga si es necesario
+    }
+  dynamic get tournament => widget.tournament;
+
+  @override
+  Widget build(BuildContext context) {
+    // Example UI, adapt as needed
+    return Scaffold(
+      appBar: AppBar(title: Text(tournament?.name ?? 'Torneo')),
+      floatingActionButton: _buildFAB(),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildInfoSection('Información'),
+            _buildInfoRow('Tipo', _getTournamentTypeName(tournament?.type ?? TournamentType.roundRobin)),
+            _buildInfoRow('Modo', _getFootballModeName(tournament?.mode ?? FootballMode.football11)),
+            _buildInfoRow('Estado', _getStatusBadge(tournament?.status ?? TournamentStatus.draft)),
             const SizedBox(height: 24),
+            _buildInfoSection('Reglas'),
+            _buildRuleRow('Regla 1', true),
+            _buildRuleRow('Regla 2', false),
+            // ...
           ],
-        );
-      },
+        ),
+      ),
     );
   }
+// Removed duplicate/legacy code after build method
 
   Widget _buildInfoSection(String title) {
     return Padding(

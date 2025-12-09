@@ -237,38 +237,74 @@ class _QuickActionCircle extends StatelessWidget {
   const _QuickActionCircle({required this.action});
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        InkWell(
-          borderRadius: BorderRadius.circular(32),
-          onTap: () {
-            if (action.route != null) {
-              Navigator.of(context).pushNamed(action.route!);
-            }
-          },
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryGreen.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 1.0, end: 1.0),
+      duration: const Duration(milliseconds: 200),
+      builder: (context, scale, child) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTapDown: (_) => {}, // Aquí podrías animar el scale
+              onTapUp: (_) => {},
+              onTapCancel: () => {},
+              onTap: () {
+                if (action.route != null) {
+                  Navigator.of(context).pushNamed(action.route!);
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 62,
+                height: 62,
+                decoration: BoxDecoration(
+                  gradient: AppTheme.heroGradient,
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: AppTheme.shadowGlow,
+                  border: Border.all(color: Colors.white.withOpacity(0.18), width: 2),
+                  backgroundBlendMode: BlendMode.luminosity,
+                ),
+                child: Center(
+                  child: Icon(
+                    action.icon,
+                    color: Colors.white,
+                    size: 32,
+                    shadows: [
+                      Shadow(
+                        color: AppTheme.accentBlue.withOpacity(0.18),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            child: Icon(action.icon, color: AppTheme.primaryGreen, size: 22),
-          ),
-        ),
-        const SizedBox(height: 4),
-        SizedBox(
-          width: 60,
-          child: Text(
-            action.label,
-            style: Theme.of(context).textTheme.labelSmall!.copyWith(fontSize: 11, fontWeight: FontWeight.w500),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
+            const SizedBox(height: 8),
+            SizedBox(
+              width: 80,
+              child: Text(
+                action.label,
+                style: Theme.of(context).textTheme.labelMedium!.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                  letterSpacing: 0.2,
+                  shadows: [
+                    Shadow(
+                      color: Colors.white.withOpacity(0.7),
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

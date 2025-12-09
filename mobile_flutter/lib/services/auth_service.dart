@@ -506,13 +506,13 @@ class AuthService extends ChangeNotifier {
     final roleStr = role.toLowerCase();
     List<String> base;
     if (roleStr.contains('admin') || roleStr.contains('superadmin')) {
-      base = ['dashboard', 'teams', 'matches', 'profile'];
+      base = ['home', 'team', 'friendlies', 'chat', 'profile'];
     } else if (roleStr.contains('coach')) {
-      base = ['teams', 'matches', 'profile'];
+      base = ['home', 'team', 'friendlies', 'chat', 'profile'];
     } else if (roleStr.contains('manager')) {
-      base = ['teams', 'matches', 'profile'];
+      base = ['home', 'team', 'friendlies', 'chat', 'profile'];
     } else if (roleStr.contains('player')) {
-      base = ['matches', 'profile'];
+      base = ['home', 'friendlies', 'profile'];
     } else {
       base = ['profile'];
     }

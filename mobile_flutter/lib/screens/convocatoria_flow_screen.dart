@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/agenda_service.dart';
-import 'team_screen.dart';
 
 class ConvocatoriaFlowScreen extends StatefulWidget {
   const ConvocatoriaFlowScreen({Key? key}) : super(key: key);

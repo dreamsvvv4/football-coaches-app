@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'convocatoria_flow_screen.dart';
 import '../services/auth_service.dart';
 import '../services/agenda_service.dart';
 import '../services/match_service.dart';
@@ -9,6 +10,10 @@ import 'tournament_screen.dart';
 import 'chat_screen.dart';
 import 'profile_screen.dart';
 import 'friendly_match_screen.dart';
+import 'friendly_matches/friendly_match_creator_screen.dart';
+import 'friendly_matches/incoming_requests_screen.dart';
+import 'friendly_matches/outgoing_requests_screen.dart';
+import 'friendly_matches/request_edit_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -74,9 +79,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (visible.contains('friendlies')) {
       items.add(const _TabItem(label: 'Amistosos', icon: Icons.handshake_outlined, selectedIcon: Icons.handshake, content: FriendlyMatchScreen()));
     }
-    if (visible.contains('tournaments')) {
-      items.add(const _TabItem(label: 'Torneos', icon: Icons.emoji_events_outlined, selectedIcon: Icons.emoji_events, content: TournamentScreen()));
-    }
+    // Torneos deshabilitado por feature flag
+    // if (visible.contains('tournaments')) {
+    //   items.add(const _TabItem(label: 'Torneos', icon: Icons.emoji_events_outlined, selectedIcon: Icons.emoji_events, content: TournamentScreen()));
+    // }
     if (visible.contains('chat')) {
       items.add(const _TabItem(label: 'Chat', icon: Icons.chat_bubble_outline, selectedIcon: Icons.chat_bubble, content: ChatScreen()));
     }
@@ -329,11 +335,11 @@ class _QuickActions extends StatelessWidget {
         icon: Icons.handshake,
         builder: (_) => const FriendlyMatchScreen(),
       ),
-      _QuickActionData(
-        label: 'Torneos',
-        icon: Icons.emoji_events,
-        builder: (_) => const TournamentScreen(),
-      ),
+      // _QuickActionData(
+      //   label: 'Torneos',
+      //   icon: Icons.emoji_events,
+      //   builder: (_) => const TournamentScreen(),
+      // ),
       _QuickActionData(
         label: 'Chat',
         icon: Icons.chat_bubble,
@@ -779,3 +785,10 @@ class _TabItem {
 
   const _TabItem({required this.label, required this.icon, required this.selectedIcon, required this.content});
 }
+
+final Map<String, WidgetBuilder> friendlyRoutes = {
+  '/friendly_matches/create': (_) => const FriendlyMatchCreatorScreen(),
+  '/friendly_matches/incoming': (_) => const IncomingRequestsScreen(),
+  '/friendly_matches/outgoing': (_) => const OutgoingRequestsScreen(),
+  '/friendly_matches/request_edit': (_) => const RequestEditScreen(),
+};

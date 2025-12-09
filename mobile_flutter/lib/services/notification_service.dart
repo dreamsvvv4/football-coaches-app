@@ -83,6 +83,30 @@ class NotificationSubscription {
 
 /// Main notification service for managing Firebase Cloud Messaging
 class NotificationService {
+
+      /// Suscribirse a notificaciones de partido amistoso
+      Future<void> subscribeToFriendly(String friendlyId) async {
+        final topic = 'friendly_$friendlyId';
+        await _firebaseMessaging.subscribeToTopic(topic);
+        _subscribedTopics.add(topic);
+        // Persistir la suscripción
+        final subscription = NotificationSubscription(
+          topic: topic,
+          entityId: friendlyId,
+          entityType: 'friendly',
+        );
+        await _persistSubscription(subscription);
+        print('Subscribed to friendly: $friendlyId');
+      }
+
+      /// Desuscribirse de notificaciones de torneo
+      Future<void> unsubscribeFromTournament(String tournamentId) async {
+        final topic = 'tournament_$tournamentId';
+        await _firebaseMessaging.unsubscribeFromTopic(topic);
+        _subscribedTopics.remove(topic);
+        await _removePersistedSubscription(topic);
+        print('Unsubscribed from tournament: $tournamentId');
+      }
     /// Envía notificación de convocatoria a jugadores o padres
     void sendConvocatoriaNotification(
       String matchId,

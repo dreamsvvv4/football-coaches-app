@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'event_details_sheet.dart';
+import '../services/agenda_service.dart';
 
 class CalendarEvent {
   final String id;
@@ -37,6 +39,20 @@ class CalendarView extends StatefulWidget {
   State<CalendarView> createState() => _CalendarViewState();
 }
 
+class _FifaCalendarBackground extends StatelessWidget {
+  const _FifaCalendarBackground();
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: AppTheme.heroGradient,
+        ),
+      ),
+    );
+  }
+}
+
 class _CalendarViewState extends State<CalendarView> {
   late DateTime _currentMonth;
   DateTime? _selectedDate;
@@ -50,13 +66,21 @@ class _CalendarViewState extends State<CalendarView> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
       children: [
-        _buildHeader(),
-        const SizedBox(height: AppTheme.spaceMd),
-        _buildWeekDays(),
-        const SizedBox(height: AppTheme.spaceSm),
-        _buildCalendarGrid(),
+        const _FifaCalendarBackground(),
+        Column(
+          children: [
+            _buildHeader(),
+            const SizedBox(height: AppTheme.spaceMd),
+            _buildWeekDays(),
+            const SizedBox(height: AppTheme.spaceSm),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              child: _buildCalendarGrid(),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -285,115 +309,151 @@ class _DayCell extends StatelessWidget {
         ? Border.all(color: AppTheme.primaryGreen, width: 2)
         : null;
 
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-          border: border,
-        ),
-        child: Stack(
-          children: [
-            Center(
-              child: Text(
-                '$day',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: isSelected
-                      ? Colors.white
-                      : isPast
-                          ? AppTheme.textTertiary
-                          : AppTheme.textPrimary,
-                  fontWeight: isSelected || isToday ? FontWeight.w700 : FontWeight.w500,
-                ),
+    bool _modalOpen = false;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      margin: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        boxShadow: isSelected ? AppTheme.shadowGlow : [],
+      ),
+      child: InkWell(
+        onTap: () async {
+          onTap();
+          if (hasEvents && !_modalOpen) {
+            _modalOpen = true;
+            await showModalBottomSheet(
+              context: context,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
-            ),
-            if (hasEvents) Positioned(
-              bottom: 4,
-              left: 0,
-              right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ...List.generate(
-                    dotColors.length,
-                    (index) => Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      width: 4,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isSelected ? Colors.white : dotColors[index],
+              builder: (context) {
+                final allEvents = [...nonMatch];
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Eventos del día', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 12),
+                      ...allEvents.take(3).map((e) => ListTile(
+                            leading: Icon(e.icon ?? Icons.event, color: e.color ?? AppTheme.primaryGreen),
+                            title: Text(e.title, style: theme.textTheme.bodyMedium),
+                            subtitle: Text(TimeOfDay.fromDateTime(e.date).format(context)),
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                ),
+                                builder: (_) => EventDetailsSheet(
+                                  item: AgendaItem(
+                                    title: e.title,
+                                    subtitle: e.description ?? '',
+                                    icon: e.icon ?? Icons.event,
+                                    when: e.date,
+                                    matchId: null,
+                                    routeName: null,
+                                  ),
+                                ),
+                              );
+                            },
+                          )),
+                      if (allEvents.length > 3)
+                        TextButton(
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Todos los eventos'),
+                                content: SizedBox(
+                                  width: double.maxFinite,
+                                  child: ListView(
+                                    shrinkWrap: true,
+                                    children: allEvents.map((e) => ListTile(
+                                      leading: Icon(e.icon ?? Icons.event, color: e.color ?? AppTheme.primaryGreen),
+                                      title: Text(e.title, style: theme.textTheme.bodyMedium),
+                                      subtitle: Text(TimeOfDay.fromDateTime(e.date).format(context)),
+                                    )).toList(),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text('Ver más'),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            );
+            _modalOpen = false;
+          }
+        },
+        child: Container(
+          width: 44,
+          height: 44,
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(12),
+            border: border,
+          ),
+          child: Stack(
+            children: [
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '$day',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: isSelected
+                            ? Colors.white
+                            : isPast
+                                ? AppTheme.textTertiary
+                                : AppTheme.textPrimary,
+                        fontWeight: isSelected || isToday ? FontWeight.w700 : FontWeight.w500,
                       ),
                     ),
-                  ),
-                  if (extraCount > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: Text(
-                        '+$extraCount',
-                        style: theme.textTheme.labelSmall?.copyWith(color: AppTheme.textSecondary),
+                    if (hasEvents)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(firstEventIcon, size: 13, color: firstEventColor),
+                            if (eventCount > 1)
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                margin: const EdgeInsets.only(left: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  gradient: AppTheme.accentGradient,
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: firstEventColor.withOpacity(0.18),
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  '$eventCount',
+                                  style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 10),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-            if (hasEvents && !hasMatch)
-              Positioned(
-                top: 6,
-                left: 6,
-                right: 6,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                  decoration: BoxDecoration(
-                    color: firstEventColor.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: firstEventColor.withValues(alpha: 0.18)),
-                  ),
-                  child: Builder(
-                    builder: (context) {
-                      // Mostrar todos los títulos de eventos (máx 3)
-                      final eventTitles = [firstEventTitle];
-                      final others = dotColors.length > 1 ? dotColors.length - 1 : 0;
-                      // Obtener todos los títulos de eventos no partido
-                      final allTitles = <String>[];
-                      for (var i = 0; i < nonMatch.length; i++) {
-                        allTitles.add(nonMatch[i].title);
-                      }
-                      final maxToShow = 3;
-                      final showTitles = nonMatch.take(maxToShow).map((e) => e.title).toList();
-                      final extra = nonMatch.length - maxToShow;
-                      return Row(
-                        children: [
-                          Icon(firstEventIcon, size: 14, color: firstEventColor),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                for (final t in showTitles)
-                                  Text(
-                                    t,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.labelSmall?.copyWith(color: Colors.blueGrey.shade700),
-                                  ),
-                                if (extra > 0)
-                                  Text(
-                                    '+$extra más',
-                                    style: theme.textTheme.labelSmall?.copyWith(color: AppTheme.textSecondary),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                  ],
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );

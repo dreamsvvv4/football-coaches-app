@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum FriendlyMatchStatus {
   proposed,
   accepted,
@@ -64,7 +66,7 @@ class FriendlyMatch {
     this.notes,
     this.updatedAt,
   });
-
+  
   FriendlyMatch copyWith({
     String? id,
     String? opponentClub,
@@ -91,6 +93,38 @@ class FriendlyMatch {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? DateTime.now(),
     );
+  }
+  
+  factory FriendlyMatch.fromMap(Map<String, dynamic> map, String id) {
+    return FriendlyMatch(
+      id: id,
+      opponentClub: map['opponentClub'] ?? 'Rival por definir',
+      location: map['location'] ?? 'Ubicación por definir',
+      scheduledAt: (map['scheduledAt'] as Timestamp).toDate(),
+      category: map['category'] ?? 'General',
+      status: friendlyMatchStatusFromString(map['status']),
+      createdByMe: map['createdByMe'] ?? true,
+      createdAt: (map['createdAt'] as Timestamp).toDate(),
+      opponentContact: map['opponentContact'],
+      notes: map['notes'],
+      updatedAt: map['updatedAt'] != null ? (map['updatedAt'] as Timestamp).toDate() : null,
+    );
+  }
+  
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'opponentClub': opponentClub,
+      'location': location,
+      'scheduledAt': Timestamp.fromDate(scheduledAt),
+      'category': category,
+      'status': status.internalName,
+      'createdByMe': createdByMe,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'opponentContact': opponentContact,
+      'notes': notes,
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+    };
   }
 
   bool get isActionable => status == FriendlyMatchStatus.proposed;
