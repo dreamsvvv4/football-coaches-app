@@ -10,6 +10,8 @@ void main() {
   group('VenuesManagementScreen Widget Tests', () {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      await AuthService.init(prefs);
       await VenueService.instance.init();
       
       // Set up a mock user with coach role

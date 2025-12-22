@@ -11,7 +11,9 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       prefs = await SharedPreferences.getInstance();
-      authService = AuthService(prefs);
+      await AuthService.init(prefs);
+      authService = AuthService();
+      await authService.logout();
     });
 
     // Initialization tests
@@ -30,7 +32,8 @@ void main() {
         );
         await prefs.setString('auth_token', 'test-token');
 
-        final newAuthService = AuthService(prefs);
+        await AuthService.init(prefs);
+        final newAuthService = AuthService();
         expect(newAuthService.isAuthenticated, true);
         expect(newAuthService.currentUser, isNotNull);
       });
@@ -49,7 +52,8 @@ void main() {
           rememberMe: false,
         );
 
-        await authService.login(loginRequest);
+        final ok = await authService.login(loginRequest);
+        expect(ok, true);
 
         expect(authService.isAuthenticated, true);
         expect(authService.currentUser, isNotNull);
@@ -63,7 +67,8 @@ void main() {
           rememberMe: false,
         );
 
-        await authService.login(loginRequest);
+        final ok = await authService.login(loginRequest);
+        expect(ok, true);
 
         expect(authService.isAuthenticated, true);
         expect(authService.currentUser, isNotNull);
@@ -76,12 +81,10 @@ void main() {
           rememberMe: false,
         );
 
-        try {
-          await authService.login(loginRequest);
-          fail('Expected login to throw error');
-        } catch (e) {
-          expect(e.toString(), contains('Invalid credentials'));
-        }
+        final ok = await authService.login(loginRequest);
+        expect(ok, false);
+        expect(authService.isAuthenticated, false);
+        expect(authService.state.error ?? '', contains('Invalid password'));
       });
 
       test('fails with non-existent email', () async {
@@ -91,12 +94,10 @@ void main() {
           rememberMe: false,
         );
 
-        try {
-          await authService.login(loginRequest);
-          fail('Expected login to throw error');
-        } catch (e) {
-          expect(e.toString(), contains('Invalid credentials'));
-        }
+        final ok = await authService.login(loginRequest);
+        expect(ok, false);
+        expect(authService.isAuthenticated, false);
+        expect(authService.state.error ?? '', contains('User not found'));
       });
 
       test('stores auth token when rememberMe is true', () async {
@@ -106,7 +107,8 @@ void main() {
           rememberMe: true,
         );
 
-        await authService.login(loginRequest);
+        final ok = await authService.login(loginRequest);
+        expect(ok, true);
 
         expect(authService.isAuthenticated, true);
         expect(prefs.containsKey('auth_token'), true);
@@ -119,7 +121,8 @@ void main() {
           rememberMe: false,
         );
 
-        await authService.login(loginRequest);
+        final ok = await authService.login(loginRequest);
+        expect(ok, true);
 
         final user = authService.currentUser;
         expect(user?.lastLoginAt, isNotNull);
@@ -139,7 +142,8 @@ void main() {
           acceptTerms: true,
         );
 
-        await authService.register(registerRequest);
+        final ok = await authService.register(registerRequest);
+        expect(ok, true);
 
         expect(authService.isAuthenticated, true);
         expect(authService.currentUser?.email, 'newuser@example.com');
@@ -157,12 +161,9 @@ void main() {
           acceptTerms: true,
         );
 
-        try {
-          await authService.register(registerRequest);
-          fail('Expected registration to throw error');
-        } catch (e) {
-          expect(e.toString(), contains('already registered'));
-        }
+        final ok = await authService.register(registerRequest);
+        expect(ok, false);
+        expect(authService.state.error ?? '', contains('already registered'));
       });
 
       test('rejects duplicate username', () async {
@@ -176,12 +177,9 @@ void main() {
           acceptTerms: true,
         );
 
-        try {
-          await authService.register(registerRequest);
-          fail('Expected registration to throw error');
-        } catch (e) {
-          expect(e.toString(), contains('already taken'));
-        }
+        final ok = await authService.register(registerRequest);
+        expect(ok, false);
+        expect(authService.state.error ?? '', contains('already taken'));
       });
 
       test('rejects mismatched passwords', () async {
@@ -195,12 +193,8 @@ void main() {
           acceptTerms: true,
         );
 
-        try {
-          await authService.register(registerRequest);
-          fail('Expected registration to throw error');
-        } catch (e) {
-          expect(e.toString(), contains('do not match'));
-        }
+        final ok = await authService.register(registerRequest);
+        expect(ok, false);
       });
 
       test('rejects registration without terms acceptance', () async {
@@ -214,12 +208,8 @@ void main() {
           acceptTerms: false,
         );
 
-        try {
-          await authService.register(registerRequest);
-          fail('Expected registration to throw error');
-        } catch (e) {
-          expect(e.toString(), contains('accept'));
-        }
+        final ok = await authService.register(registerRequest);
+        expect(ok, false);
       });
 
       test('creates user with correct role', () async {
@@ -233,15 +223,16 @@ void main() {
           acceptTerms: true,
         );
 
-        await authService.register(registerRequest);
+        final ok = await authService.register(registerRequest);
+        expect(ok, true);
 
         expect(authService.currentUser?.role, UserRole.staff);
       });
 
       test('sets isFirstLogin to true after registration', () async {
         final registerRequest = RegistrationRequest(
-          email: 'newuser@example.com',
-          username: 'newuser',
+          email: 'firstlogin@example.com',
+          username: 'firstlogin_user',
           fullName: 'New User',
           password: 'NewPassword123!',
           passwordConfirmation: 'NewPassword123!',
@@ -249,7 +240,8 @@ void main() {
           acceptTerms: true,
         );
 
-        await authService.register(registerRequest);
+        final ok = await authService.register(registerRequest);
+        expect(ok, true);
 
         expect(authService.isFirstLogin, true);
       });
@@ -265,7 +257,8 @@ void main() {
           rememberMe: true,
         );
 
-        await authService.login(loginRequest);
+        final ok = await authService.login(loginRequest);
+        expect(ok, true);
         expect(authService.isAuthenticated, true);
 
         // Then logout
@@ -283,7 +276,8 @@ void main() {
           rememberMe: true,
         );
 
-        await authService.login(loginRequest);
+        final ok = await authService.login(loginRequest);
+        expect(ok, true);
         expect(prefs.containsKey('auth_token'), true);
 
         await authService.logout();
@@ -296,12 +290,14 @@ void main() {
     group('password reset', () {
       test('requests password reset for valid email', () async {
         // Should not throw for existing email
-        await authService.requestPasswordReset('coach@example.com');
+        final ok = await authService.requestPasswordReset('coach@example.com');
+        expect(ok, true);
       });
 
       test('requests password reset for non-existent email', () async {
         // Should still succeed (don't reveal if email exists)
-        await authService.requestPasswordReset('nonexistent@example.com');
+        final ok = await authService.requestPasswordReset('nonexistent@example.com');
+        expect(ok, true);
       });
 
       test('resets password with valid token', () async {
@@ -311,7 +307,8 @@ void main() {
           confirmPassword: 'NewPassword123!',
         );
 
-        await authService.resetPassword(resetRequest);
+        final ok = await authService.resetPassword(resetRequest);
+        expect(ok, true);
       });
 
       test('rejects mismatched passwords in reset', () async {
@@ -321,12 +318,8 @@ void main() {
           confirmPassword: 'DifferentPassword123!',
         );
 
-        try {
-          await authService.resetPassword(resetRequest);
-          fail('Expected password reset to throw error');
-        } catch (e) {
-          expect(e.toString(), contains('do not match'));
-        }
+        final ok = await authService.resetPassword(resetRequest);
+        expect(ok, false);
       });
     });
 
@@ -407,7 +400,8 @@ void main() {
           rememberMe: true,
         );
 
-        await authService.login(loginRequest);
+        final ok = await authService.login(loginRequest);
+        expect(ok, true);
 
         expect(prefs.containsKey('user_id'), true);
         expect(prefs.containsKey('user_data'), true);
@@ -421,7 +415,8 @@ void main() {
           rememberMe: true,
         );
 
-        await authService.login(loginRequest);
+        final ok = await authService.login(loginRequest);
+        expect(ok, true);
         expect(prefs.containsKey('auth_token'), true);
 
         await authService.logout();

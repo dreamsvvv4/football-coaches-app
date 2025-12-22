@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
-import User from '../models/user.model';
+import bcrypt from 'bcryptjs';
+import { User } from '../models/user.model';
+import { getJwtSecret } from '../utils/security';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
+const JWT_SECRET = getJwtSecret();
 
 // Register a new user
 export const register = async (req: Request, res: Response) => {
@@ -28,7 +29,7 @@ export const login = async (req: Request, res: Response) => {
     const { username, password } = req.body;
 
     try {
-        const user = await User.findOne({ where: { username } });
+        const user = await User.findOne({ username });
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }

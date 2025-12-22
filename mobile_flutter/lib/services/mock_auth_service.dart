@@ -1,9 +1,6 @@
 // Mock de respuestas para simular el backend (sin dependencias de Flutter)
 class MockAuthService {
   static Future<Map<String, dynamic>> register(String username, String email, String password) async {
-    // Simula un delay de red
-    await Future.delayed(const Duration(milliseconds: 500));
-
     // Valida campos
     if (username.isEmpty || password.isEmpty) {
       return {'success': false, 'error': 'Usuario y contraseña requeridos'};
@@ -35,8 +32,6 @@ class MockAuthService {
   }
 
   static Future<Map<String, dynamic>> login(String username, String password) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-
     if (username.isEmpty || password.isEmpty) {
       return {'success': false, 'error': 'Usuario y contraseña requeridos'};
     }
@@ -67,7 +62,6 @@ class MockAuthService {
   }
 
   static Future<Map<String, dynamic>> getClubs() async {
-    await Future.delayed(const Duration(milliseconds: 500));
     return {
       'success': true,
       'data': [
@@ -78,7 +72,6 @@ class MockAuthService {
   }
 
   static Future<Map<String, dynamic>> getTeams(String clubId) async {
-    await Future.delayed(const Duration(milliseconds: 500));
     return {
       'success': true,
       'data': [
@@ -89,7 +82,6 @@ class MockAuthService {
   }
 
   static Future<Map<String, dynamic>> getPlayers(String teamId) async {
-    await Future.delayed(const Duration(milliseconds: 500));
     return {
       'success': true,
       'data': [
@@ -100,7 +92,6 @@ class MockAuthService {
   }
 
   static Future<Map<String, dynamic>> getTournaments() async {
-    await Future.delayed(const Duration(milliseconds: 500));
     return {
       'success': true,
       'data': [

@@ -11,7 +11,8 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       prefs = await SharedPreferences.getInstance();
-      authService = AuthService(prefs);
+      await AuthService.init(prefs);
+      authService = AuthService();
     });
 
     group('Login', () {

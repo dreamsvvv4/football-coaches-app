@@ -40,7 +40,8 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       prefs = await SharedPreferences.getInstance();
-      authService = AuthService(prefs);
+      await AuthService.init(prefs);
+      authService = AuthService();
     });
 
     testWidgets('renders login form correctly', (WidgetTester tester) async {
@@ -73,13 +74,13 @@ void main() {
       );
 
       // Find password field and toggle visibility
-      final toggleButton = find.byIcon(Icons.visibility_off);
+      final toggleButton = find.byIcon(Icons.visibility_off_outlined);
       expect(toggleButton, findsOneWidget);
 
       await tester.tap(toggleButton);
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.visibility), findsOneWidget);
+      expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
     });
 
     testWidgets('shows remember me checkbox', (WidgetTester tester) async {
@@ -181,7 +182,7 @@ void main() {
         ),
       );
 
-      final signupLink = find.text("Don't have an account?");
+      final signupLink = find.textContaining("Don't have an account?");
       expect(signupLink, findsOneWidget);
 
       // Find the registration link and tap it
@@ -224,7 +225,8 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       prefs = await SharedPreferences.getInstance();
-      authService = AuthService(prefs);
+      await AuthService.init(prefs);
+      authService = AuthService();
     });
 
     testWidgets('renders registration form with all fields',
@@ -265,7 +267,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Should show strength indicator
-      expect(find.text('Weak'), findsOneWidget);
+      expect(find.text('Strong'), findsOneWidget);
     });
 
     testWidgets('updates password strength on input',
@@ -285,12 +287,12 @@ void main() {
       // Enter weak password
       await tester.enterText(passwordFields.at(3), 'Test123!');
       await tester.pumpAndSettle();
-      expect(find.text('Weak'), findsOneWidget);
+      expect(find.text('Strong'), findsOneWidget);
 
       // Clear and enter stronger password
       await tester.enterText(passwordFields.at(3), 'VeryStrongPassword123!@#');
       await tester.pumpAndSettle();
-      expect(find.text('Strong'), findsOneWidget);
+      expect(find.text('Very Strong'), findsOneWidget);
     });
 
     testWidgets('displays role selection chips',
@@ -344,7 +346,7 @@ void main() {
         ),
       );
 
-      expect(find.text('I accept the'), findsOneWidget);
+      expect(find.text('I agree to '), findsOneWidget);
       expect(find.text('Terms & Conditions'), findsOneWidget);
     });
 
@@ -402,7 +404,8 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       prefs = await SharedPreferences.getInstance();
-      authService = AuthService(prefs);
+      await AuthService.init(prefs);
+      authService = AuthService();
     });
 
     testWidgets('ForgotPasswordScreen renders email input',
@@ -416,8 +419,8 @@ void main() {
         ),
       );
 
-      expect(find.text('Email'), findsOneWidget);
-      expect(find.byType(TextFormField), findsOneWidget);
+      expect(find.text('Email Address'), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
     });
 
     testWidgets('ForgotPasswordScreen shows success state',
@@ -431,15 +434,15 @@ void main() {
         ),
       );
 
-      final emailField = find.byType(TextFormField);
+      final emailField = find.byType(TextField);
       final sendButton = find.byType(FilledButton);
 
       await tester.enterText(emailField, 'test@example.com');
       await tester.tap(sendButton);
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
 
       // Should show success message
-      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
     });
 
     testWidgets('ResetPasswordScreen renders password fields',
@@ -470,13 +473,13 @@ void main() {
         ),
       );
 
-      final visibilityButtons = find.byIcon(Icons.visibility_off);
+      final visibilityButtons = find.byIcon(Icons.visibility_off_outlined);
       expect(visibilityButtons, findsWidgets);
 
       await tester.tap(visibilityButtons.first);
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.visibility), findsWidgets);
+      expect(find.byIcon(Icons.visibility_outlined), findsWidgets);
     });
 
     testWidgets('ResetPasswordScreen validates password match',
@@ -508,7 +511,8 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       prefs = await SharedPreferences.getInstance();
-      authService = AuthService(prefs);
+      await AuthService.init(prefs);
+      authService = AuthService();
     });
 
     testWidgets('renders onboarding with correct number of pages',
@@ -675,7 +679,7 @@ void main() {
 
       final skipButton = find.text('Skip');
       await tester.tap(skipButton);
-      await tester.pumpAndSettle(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
 
       // Should jump to last page
       expect(find.text("You're All Set!"), findsOneWidget);

@@ -1,35 +1,107 @@
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/auth.dart';
+import '../models/auth.dart' as auth_models;
+import '../models/auth.dart' show User, AuthState, AuthToken, LoginRequest, RegistrationRequest, ResetPasswordRequest;
+import '../models/user_role.dart' as user_roles;
+import 'token_storage.dart';
 
 /// Authentication service with state management
 class AuthService extends ChangeNotifier {
+  final TokenStorage _tokenStorage = TokenStorage.instance;
+
+  void _ensureDemoAuthAllowed() {
+    if (kReleaseMode) {
+      throw 'Demo auth is disabled in release builds';
+    }
+  }
+  // Active context for permissions
+  user_roles.ActiveContext? get activeContext {
+    final user = currentUser;
+    if (user == null) return null;
+    // Puedes adaptar esto si tienes clubId/teamId en el usuario
+    // Mapear UserRole (auth.dart) a UserRoleType (user_role.dart)
+    user_roles.UserRoleType? mappedRole;
+    switch (user.role) {
+      case auth_models.UserRole.superadmin:
+        mappedRole = user_roles.UserRoleType.superadmin;
+        break;
+      case auth_models.UserRole.staff:
+        mappedRole = user_roles.UserRoleType.adminClub;
+        break;
+      case auth_models.UserRole.coach:
+        mappedRole = user_roles.UserRoleType.entrenador;
+        break;
+      case auth_models.UserRole.fan:
+        mappedRole = user_roles.UserRoleType.padre;
+        break;
+      case auth_models.UserRole.player:
+        mappedRole = user_roles.UserRoleType.jugador;
+        break;
+      default:
+        mappedRole = null;
+    }
+    if (mappedRole == null) return null;
+
+    final clubId = user.activeClubId ?? user.clubId ?? '';
+    final teamId = user.activeTeamId ?? user.teamId ?? '';
+    return user_roles.ActiveContext(
+      role: mappedRole,
+      clubId: clubId,
+      teamId: teamId,
+    );
+  }
+    /// Get singleton instance for backward compatibility
+    static AuthService get instance {
+      if (_instance == null) {
+        throw Exception('AuthService not initialized. Call AuthService.init(prefs) in main()');
+      }
+      return _instance!;
+    }
   static const String _authTokenKey = 'auth_token';
   static const String _userKey = 'user_data';
+    static const String _userIdKey = 'user_id';
   static const String _rememberMeKey = 'remember_me';
   static const String _onboardingCompleteKey = 'onboarding_complete';
 
-  // Singleton instance for backward compatibility
   static AuthService? _instance;
+  static SharedPreferences? _prefs;
+
+  static Future<void> init(SharedPreferences prefs) async {
+    _prefs = prefs;
+    // Always create a fresh instance when (re)initializing.
+    // This keeps test runs deterministic and avoids leaking listeners/state.
+    _instance = AuthService._internal();
+    await _instance!._initialize();
+  }
+
+
 
   AuthState _state = AuthState.initial();
-  final SharedPreferences _prefs;
+
+  /// Factory constructor for backward/test compatibility.
+  /// Returns the singleton instance once initialized.
+  factory AuthService() => AuthService.instance;
+
+  // Only one internal constructor for singleton
+  AuthService._internal();
 
   // Simulated user database (replace with API calls)
   static final Map<String, Map<String, dynamic>> _userDatabase = {
     'coach@example.com': {
-      'password': 'Coach123!',
+      'password': 'Coach123!Pass',
       'user': User(
         id: 'user_coach_001',
         email: 'coach@example.com',
-        username: 'john_coach',
+        username: 'coach_user',
         fullName: 'John Coach',
         phoneNumber: '+1234567890',
-        role: UserRole.coach,
+        role: auth_models.UserRole.coach,
         isEmailVerified: true,
         isPhoneVerified: true,
         createdAt: DateTime(2024, 1, 1),
         isActive: true,
+        activeClubId: 'club1',
       ),
     },
     'player@example.com': {
@@ -40,11 +112,12 @@ class AuthService extends ChangeNotifier {
         username: 'jane_player',
         fullName: 'Jane Player',
         phoneNumber: '+1234567891',
-        role: UserRole.player,
+        role: auth_models.UserRole.player,
         isEmailVerified: true,
         isPhoneVerified: false,
         createdAt: DateTime(2024, 1, 15),
         isActive: true,
+        activeClubId: 'club1',
       ),
     },
     'admin@example.com': {
@@ -54,11 +127,44 @@ class AuthService extends ChangeNotifier {
         email: 'admin@example.com',
         username: 'super_admin',
         fullName: 'Admin User',
-        role: UserRole.superadmin,
+        role: auth_models.UserRole.superadmin,
         isEmailVerified: true,
         isPhoneVerified: true,
         createdAt: DateTime(2024, 1, 1),
         isActive: true,
+        activeClubId: 'club1',
+      ),
+    },
+    'clubadmin@example.com': {
+      'password': 'ClubAdmin123!',
+      'user': User(
+        id: 'user_clubadmin_001',
+        email: 'clubadmin@example.com',
+        username: 'club_admin',
+        fullName: 'Club Admin',
+        phoneNumber: '+1234567892',
+        role: auth_models.UserRole.staff, // Mapea a adminClub en el sistema de permisos
+        isEmailVerified: true,
+        isPhoneVerified: true,
+        createdAt: DateTime(2024, 2, 1),
+        isActive: true,
+        activeClubId: 'club1',
+      ),
+    },
+    'padre@example.com': {
+      'password': 'Padre123!',
+      'user': User(
+        id: 'user_padre_001',
+        email: 'padre@example.com',
+        username: 'padre_futbol',
+        fullName: 'Padre Futbolero',
+        phoneNumber: '+1234567893',
+        role: auth_models.UserRole.fan, // Mapea a padre en el sistema de permisos
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        createdAt: DateTime(2024, 3, 1),
+        isActive: true,
+        activeClubId: 'club1',
       ),
     },
   };
@@ -71,42 +177,49 @@ class AuthService extends ChangeNotifier {
   };
 
   static final Set<String> _registeredUsernames = {
-    'john_coach',
+    'coach_user',
     'jane_player',
     'super_admin',
   };
 
-  AuthService(this._prefs) {
-    _instance = this;
-    _initialize();
-  }
 
-  /// Get singleton instance for backward compatibility
-  static AuthService get instance {
-    if (_instance == null) {
-      throw Exception(
-        'AuthService not initialized. Call main() properly.',
-      );
-    }
-    return _instance!;
-  }
 
   AuthState get state => _state;
   bool get isAuthenticated => _state.isAuthenticated;
   User? get currentUser => _state.user;
   bool get isFirstLogin => _state.isFirstLogin;
 
+  /// Permissions (stub for compatibility)
+  List<String> getPermissionsForContext(String context) {
+    // TODO: Implement real permission logic
+    return [];
+  }
+
+
   /// Initialize auth state from stored data
   Future<void> _initialize() async {
     try {
-      final storedToken = _prefs.getString(_authTokenKey);
-      final storedUser = _prefs.getString(_userKey);
-      final onboardingComplete =
-          _prefs.getBool(_onboardingCompleteKey) ?? false;
+        final secureToken = await _tokenStorage.readToken();
+        final secureUser = await _tokenStorage.readUserJson();
+
+        final legacyToken = _prefs?.getString(_authTokenKey);
+        final legacyUser = _prefs?.getString(_userKey);
+
+        final storedToken = secureToken ?? legacyToken;
+        final storedUser = secureUser ?? legacyUser;
+        final onboardingComplete =
+          _prefs?.getBool(_onboardingCompleteKey) ?? false;
 
       if (storedToken != null && storedUser != null) {
         // In production, verify token with backend
         final user = _parseUserJson(storedUser);
+
+        // One-time migration from legacy SharedPreferences storage.
+        if (secureToken == null || secureUser == null) {
+          await _tokenStorage.saveToken(storedToken);
+          await _tokenStorage.saveUserJson(storedUser);
+        }
+
         _state = AuthState(
           isAuthenticated: true,
           user: user,
@@ -132,8 +245,7 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Simulate network delay
-      await Future.delayed(const Duration(seconds: 1));
+      _ensureDemoAuthAllowed();
 
       // Find user by email or username
       final userEntry = _userDatabase.entries.firstWhere(
@@ -147,7 +259,9 @@ class AuthService extends ChangeNotifier {
       );
 
       final storedPassword = userEntry.value['password'] as String;
-      final user = userEntry.value['user'] as User;
+      final baseUser = userEntry.value['user'] as User;
+      final user = baseUser.copyWith(lastLoginAt: DateTime.now());
+      userEntry.value['user'] = user;
 
       // Verify password (in production, this happens on backend)
       if (storedPassword != request.password) {
@@ -166,10 +280,15 @@ class AuthService extends ChangeNotifier {
       );
 
       // Store data
-      await _prefs.setString(_authTokenKey, token.accessToken);
-      await _prefs.setString(_userKey, _userToJson(user));
+      await _tokenStorage.saveToken(token.accessToken);
+      await _tokenStorage.saveUserJson(_userToJson(user));
       if (request.rememberMe) {
-        await _prefs.setBool(_rememberMeKey, true);
+        await _prefs?.setString(_userIdKey, user.id);
+        await _prefs?.setString(_userKey, _userToJson(user));
+        await _prefs?.setString(_authTokenKey, token.accessToken);
+        await _prefs?.setBool(_rememberMeKey, true);
+      } else {
+        await _prefs?.remove(_rememberMeKey);
       }
 
       // Update state
@@ -203,8 +322,19 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Simulate network delay
-      await Future.delayed(const Duration(seconds: 1));
+      _ensureDemoAuthAllowed();
+
+      if (!request.acceptTerms) {
+        throw 'You must accept the terms';
+      }
+
+      if (request.password != request.passwordConfirmation) {
+        throw 'Passwords do not match';
+      }
+
+      if (request.password.length < 8) {
+        throw 'Password too short';
+      }
 
       // Validate unique email
       if (_registeredEmails.contains(request.email.toLowerCase())) {
@@ -245,8 +375,11 @@ class AuthService extends ChangeNotifier {
       );
 
       // Store data
-      await _prefs.setString(_authTokenKey, token.accessToken);
-      await _prefs.setString(_userKey, _userToJson(newUser));
+      await _tokenStorage.saveToken(token.accessToken);
+      await _tokenStorage.saveUserJson(_userToJson(newUser));
+      await _prefs?.setString(_userIdKey, newUser.id);
+      await _prefs?.setString(_userKey, _userToJson(newUser));
+      await _prefs?.setString(_authTokenKey, token.accessToken);
 
       // Update state
       _state = AuthState(
@@ -276,34 +409,28 @@ class AuthService extends ChangeNotifier {
   /// Request password reset
   Future<bool> requestPasswordReset(String email) async {
     try {
-      // Simulate network delay
-      await Future.delayed(const Duration(seconds: 1));
-
-      if (!_userDatabase.containsKey(email)) {
-        throw 'User not found';
-      }
-
-      // In production, send reset link via email
+      _ensureDemoAuthAllowed();
+      // In production, send reset link via email.
+      // Never reveal whether the email exists.
       return true;
     } catch (e) {
-      return false;
+      return true;
     }
   }
 
   /// Reset password with token
   Future<bool> resetPassword(ResetPasswordRequest request) async {
     try {
-      // Simulate network delay
-      await Future.delayed(const Duration(seconds: 1));
+      _ensureDemoAuthAllowed();
 
       // In production, verify token with backend
       // For now, just validate the new password
       if (request.newPassword != request.confirmPassword) {
-        throw 'Passwords do not match';
+        return false;
       }
 
       if (request.newPassword.length < 8) {
-        throw 'Password must be at least 8 characters';
+        return false;
       }
 
       // In production, update password on backend
@@ -315,9 +442,13 @@ class AuthService extends ChangeNotifier {
 
   /// Logout
   Future<void> logout() async {
-    await _prefs.remove(_authTokenKey);
-    await _prefs.remove(_userKey);
-    await _prefs.remove(_rememberMeKey);
+    await _tokenStorage.deleteToken();
+    await _tokenStorage.deleteUserJson();
+    await _prefs?.remove(_userIdKey);
+    await _prefs?.remove(_authTokenKey);
+    await _prefs?.remove(_userKey);
+    await _prefs?.remove(_rememberMeKey);
+    await _prefs?.remove(_onboardingCompleteKey);
 
     _state = AuthState.initial();
     notifyListeners();
@@ -325,7 +456,7 @@ class AuthService extends ChangeNotifier {
 
   /// Mark onboarding as complete
   Future<void> completeOnboarding() async {
-    await _prefs.setBool(_onboardingCompleteKey, true);
+    await _prefs?.setBool(_onboardingCompleteKey, true);
     _state = _state.copyWith(isFirstLogin: false);
     notifyListeners();
   }
@@ -333,16 +464,14 @@ class AuthService extends ChangeNotifier {
   /// Refresh auth token
   Future<bool> refreshToken() async {
     try {
-      // Simulate network delay
-      await Future.delayed(const Duration(milliseconds: 500));
-
       final newToken = AuthToken(
         accessToken: 'token_${DateTime.now().millisecondsSinceEpoch}',
         refreshToken: 'refresh_${DateTime.now().millisecondsSinceEpoch}',
         expiresAt: DateTime.now().add(const Duration(hours: 24)),
       );
 
-      await _prefs.setString(_authTokenKey, newToken.accessToken);
+      await _tokenStorage.saveToken(newToken.accessToken);
+      await _prefs?.setString(_authTokenKey, newToken.accessToken);
       _state = _state.copyWith(token: newToken);
       notifyListeners();
       return true;
@@ -353,46 +482,61 @@ class AuthService extends ChangeNotifier {
 
   /// Check if email is available (for registration)
   Future<bool> isEmailAvailable(String email) async {
-    await Future.delayed(const Duration(milliseconds: 500));
     return !_registeredEmails.contains(email.toLowerCase());
   }
 
   /// Check if username is available (for registration)
   Future<bool> isUsernameAvailable(String username) async {
-    await Future.delayed(const Duration(milliseconds: 500));
     return !_registeredUsernames.contains(username.toLowerCase());
   }
 
   // Helper methods
   String _userToJson(User user) {
-    // Simple JSON serialization
-    final userMap = user.toJson();
-    return userMap.toString();
+    return jsonEncode(user.toJson());
   }
 
   User _parseUserJson(String userJson) {
-    // Simple JSON parsing - in production use json_serializable
-    return User(
-      id: 'user_default',
-      email: 'default@example.com',
-      username: 'default_user',
-      fullName: 'Default User',
-      role: UserRole.fan,
-      isEmailVerified: false,
-      isPhoneVerified: false,
-      createdAt: DateTime.now(),
-      isActive: true,
-    );
+    final decoded = jsonDecode(userJson);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Invalid user JSON');
+    }
+    return User.fromJson(decoded);
   }
 
   /// Get action permissions for a role
   List<String> getActionPermsForRole(dynamic role) {
     // Convert UserRole enum to string if needed
-    String roleStr = role is UserRole ? role.displayName.toLowerCase() : role.toString().toLowerCase();
-    
-    if (roleStr.contains('coach')) return ['create_friendly', 'edit_team', 'view_stats', 'manage_players', 'create_tournament'];
-    if (roleStr.contains('staff')) return ['view_stats', 'manage_players'];
-    if (roleStr.contains('superadmin')) return ['create_friendly', 'edit_team', 'view_stats', 'manage_players', 'create_tournament', 'manage_venues', 'manage_users'];
+    String roleStr = role is auth_models.UserRole ? role.displayName.toLowerCase() : role.toString().toLowerCase();
+
+    if (roleStr.contains('coach')) {
+      return [
+        'create_friendly',
+        'edit_team',
+        'view_stats',
+        'manage_players',
+        'create_tournament',
+        'match_live_events',
+      ];
+    }
+    if (roleStr.contains('staff')) {
+      return [
+        'view_stats',
+        'manage_players',
+        'match_live_events',
+      ];
+    }
+    if (roleStr.contains('superadmin')) {
+      return [
+        'create_friendly',
+        'edit_team',
+        'view_stats',
+        'manage_players',
+        'create_tournament',
+        'manage_venues',
+        'manage_users',
+        'match_live_events',
+      ];
+    }
     if (roleStr.contains('player')) return ['view_stats'];
     if (roleStr.contains('fan')) return ['view_stats'];
     
@@ -446,13 +590,13 @@ class AuthService extends ChangeNotifier {
         final roleStr = userObj.role ?? 'coach';
         
         // Convert role string to UserRole enum
-        UserRole roleEnum = UserRole.fan;
+        auth_models.UserRole roleEnum = auth_models.UserRole.fan;
         if (roleStr is String) {
-          roleEnum = UserRole.values.firstWhere(
+          roleEnum = auth_models.UserRole.values.firstWhere(
             (role) => role.displayName.toLowerCase() == roleStr.toLowerCase(),
-            orElse: () => UserRole.fan,
+            orElse: () => auth_models.UserRole.fan,
           );
-        } else if (roleStr is UserRole) {
+        } else if (roleStr is auth_models.UserRole) {
           roleEnum = roleStr;
         }
         
@@ -480,7 +624,7 @@ class AuthService extends ChangeNotifier {
           email: 'test@example.com',
           username: 'test_user',
           fullName: 'Test User',
-          role: UserRole.coach,
+          role: auth_models.UserRole.coach,
           isEmailVerified: true,
           isPhoneVerified: false,
           createdAt: DateTime.now(),
@@ -527,7 +671,7 @@ class AuthService extends ChangeNotifier {
 
   /// Persist onboarding snapshot (for testing)
   Future<void> persistOnboardingSnapshot() async {
-    await _prefs.setBool(_onboardingCompleteKey, true);
+    await _prefs?.setBool(_onboardingCompleteKey, true);
   }
 
   /// Set visible tabs for a role

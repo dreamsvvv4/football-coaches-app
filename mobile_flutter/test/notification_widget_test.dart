@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +19,7 @@ class _NotificationTestWidgetState extends State<NotificationTestWidget> {
   late NotificationService _notificationService;
   final List<PushNotification> _notifications = [];
   int _unreadCount = 0;
+  StreamSubscription<PushNotification>? _notificationSub;
 
   @override
   void initState() {
@@ -24,12 +27,14 @@ class _NotificationTestWidgetState extends State<NotificationTestWidget> {
     _notificationService = NotificationService.instance;
 
     // Listen to notifications
-    _notificationService.notificationStream.listen((notification) {
+    _notificationSub = _notificationService.notificationStream.listen((notification) {
+      if (!mounted) return;
       setState(() {
         _notifications.add(notification);
         _unreadCount++;
       });
 
+      if (!mounted) return;
       // Show Material 3 Snackbar
       _showNotificationSnackBar(notification);
     });
@@ -228,6 +233,7 @@ class _NotificationTestWidgetState extends State<NotificationTestWidget> {
 
   @override
   void dispose() {
+    _notificationSub?.cancel();
     super.dispose();
   }
 }
@@ -236,6 +242,8 @@ void main() {
   group('Notification Widget Tests', () {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      await AuthService.init(prefs);
 
       // Initialize auth
       final mockUser = User(
@@ -253,6 +261,9 @@ void main() {
 
       // Initialize notification service
       await NotificationService.instance.init();
+
+      // Ensure clean slate between tests (service is a singleton)
+      NotificationService.instance.clearAllNotifications();
     });
 
     tearDown(() async {
@@ -305,11 +316,22 @@ void main() {
         ),
       );
 
-      // Build the widget
+      // Seed at least one notification so the ListView is visible.
+      await NotificationService.instance.storeNotification(
+        PushNotification(
+          title: 'Test Title',
+          body: 'Test Body',
+          data: const {},
+          timestamp: DateTime.now(),
+          type: 'match',
+          entityId: 'match_1',
+        ),
+      );
+
       await tester.pumpAndSettle();
 
-      // Verify layout structure exists
-      expect(find.byType(ListView), findsWidgets);
+      expect(find.byType(ListView), findsOneWidget);
+      expect(find.byType(Card), findsWidgets);
     });
 
     testWidgets('Notification color changes by type', (WidgetTester tester) async {
@@ -348,10 +370,39 @@ void main() {
         ),
       );
 
+      await NotificationService.instance.storeNotification(
+        PushNotification(
+          title: 'First',
+          body: 'First body',
+          data: const {},
+          timestamp: DateTime.now().subtract(const Duration(minutes: 2)),
+          type: 'match',
+          entityId: 'match_first',
+        ),
+      );
+      await NotificationService.instance.storeNotification(
+        PushNotification(
+          title: 'Second',
+          body: 'Second body',
+          data: const {},
+          timestamp: DateTime.now(),
+          type: 'match',
+          entityId: 'match_second',
+        ),
+      );
+
       await tester.pumpAndSettle();
 
-      // Verify ListView exists
-      expect(find.byType(ListView), findsWidgets);
+      expect(find.byType(ListView), findsOneWidget);
+      final firstInList = find.descendant(of: find.byType(ListView), matching: find.text('First'));
+      final secondInList = find.descendant(of: find.byType(ListView), matching: find.text('Second'));
+
+      expect(firstInList, findsOneWidget);
+      expect(secondInList, findsOneWidget);
+
+      final secondY = tester.getTopLeft(secondInList).dy;
+      final firstY = tester.getTopLeft(firstInList).dy;
+      expect(secondY, lessThan(firstY));
     });
 
     testWidgets('Chip displays notification type', (WidgetTester tester) async {

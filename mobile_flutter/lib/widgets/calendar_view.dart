@@ -43,10 +43,17 @@ class _FifaCalendarBackground extends StatelessWidget {
   const _FifaCalendarBackground();
   @override
   Widget build(BuildContext context) {
+    final colors = AppTheme.heroGradient.colors
+        .map((c) => c.withValues(alpha: 0.22))
+        .toList(growable: false);
     return Positioned.fill(
       child: Container(
         decoration: BoxDecoration(
-          gradient: AppTheme.heroGradient,
+          gradient: LinearGradient(
+            begin: AppTheme.heroGradient.begin,
+            end: AppTheme.heroGradient.end,
+            colors: colors,
+          ),
         ),
       ),
     );
@@ -66,20 +73,32 @@ class _CalendarViewState extends State<CalendarView> {
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
     return Stack(
       children: [
         const _FifaCalendarBackground(),
-        Column(
-          children: [
-            _buildHeader(),
-            const SizedBox(height: AppTheme.spaceMd),
-            _buildWeekDays(),
-            const SizedBox(height: AppTheme.spaceSm),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 350),
-              child: _buildCalendarGrid(),
+        Padding(
+          padding: const EdgeInsets.all(AppTheme.spaceMd),
+          child: Container(
+            padding: const EdgeInsets.all(AppTheme.spaceMd),
+            decoration: BoxDecoration(
+              color: surface.withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+              boxShadow: AppTheme.shadowSm,
             ),
-          ],
+            child: Column(
+              children: [
+                _buildHeader(),
+                const SizedBox(height: AppTheme.spaceMd),
+                _buildWeekDays(),
+                const SizedBox(height: AppTheme.spaceSm),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 350),
+                  child: _buildCalendarGrid(),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -158,7 +177,7 @@ class _CalendarViewState extends State<CalendarView> {
             child: Text(
               day,
               style: theme.textTheme.labelMedium?.copyWith(
-                color: AppTheme.textSecondary,
+                color: Colors.white.withValues(alpha: 0.82),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -230,13 +249,17 @@ class _CalendarViewState extends State<CalendarView> {
       );
     }
 
-    return GridView.count(
-      crossAxisCount: 7,
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 7,
+        mainAxisSpacing: AppTheme.spaceSm,
+        crossAxisSpacing: AppTheme.spaceSm,
+        mainAxisExtent: 56,
+      ),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: AppTheme.spaceSm,
-      crossAxisSpacing: AppTheme.spaceSm,
-      children: dayWidgets,
+      itemCount: dayWidgets.length,
+      itemBuilder: (context, index) => dayWidgets[index],
     );
   }
 
@@ -308,8 +331,6 @@ class _DayCell extends StatelessWidget {
     final border = isToday && !isSelected
         ? Border.all(color: AppTheme.primaryGreen, width: 2)
         : null;
-
-    bool _modalOpen = false;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
@@ -318,81 +339,7 @@ class _DayCell extends StatelessWidget {
         boxShadow: isSelected ? AppTheme.shadowGlow : [],
       ),
       child: InkWell(
-        onTap: () async {
-          onTap();
-          if (hasEvents && !_modalOpen) {
-            _modalOpen = true;
-            await showModalBottomSheet(
-              context: context,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              builder: (context) {
-                final allEvents = [...nonMatch];
-                return Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Eventos del día', style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 12),
-                      ...allEvents.take(3).map((e) => ListTile(
-                            leading: Icon(e.icon ?? Icons.event, color: e.color ?? AppTheme.primaryGreen),
-                            title: Text(e.title, style: theme.textTheme.bodyMedium),
-                            subtitle: Text(TimeOfDay.fromDateTime(e.date).format(context)),
-                            onTap: () {
-                              Navigator.of(context).pop();
-                              showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                                ),
-                                builder: (_) => EventDetailsSheet(
-                                  item: AgendaItem(
-                                    title: e.title,
-                                    subtitle: e.description ?? '',
-                                    icon: e.icon ?? Icons.event,
-                                    when: e.date,
-                                    matchId: null,
-                                    routeName: null,
-                                  ),
-                                ),
-                              );
-                            },
-                          )),
-                      if (allEvents.length > 3)
-                        TextButton(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: const Text('Todos los eventos'),
-                                content: SizedBox(
-                                  width: double.maxFinite,
-                                  child: ListView(
-                                    shrinkWrap: true,
-                                    children: allEvents.map((e) => ListTile(
-                                      leading: Icon(e.icon ?? Icons.event, color: e.color ?? AppTheme.primaryGreen),
-                                      title: Text(e.title, style: theme.textTheme.bodyMedium),
-                                      subtitle: Text(TimeOfDay.fromDateTime(e.date).format(context)),
-                                    )).toList(),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                          child: const Text('Ver más'),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            );
-            _modalOpen = false;
-          }
-        },
+        onTap: onTap,
         child: Container(
           width: 44,
           height: 44,
@@ -414,8 +361,8 @@ class _DayCell extends StatelessWidget {
                         color: isSelected
                             ? Colors.white
                             : isPast
-                                ? AppTheme.textTertiary
-                                : AppTheme.textPrimary,
+                                ? Colors.white.withValues(alpha: 0.52)
+                                : Colors.white.withValues(alpha: 0.92),
                         fontWeight: isSelected || isToday ? FontWeight.w700 : FontWeight.w500,
                       ),
                     ),
@@ -474,52 +421,12 @@ class CalendarWithEvents extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    DateTime? selectedDate;
-
-    return StatefulBuilder(
-      builder: (context, setState) {
-        final selectedEvents = selectedDate != null
-            ? events.where((e) =>
-                e.date.year == selectedDate!.year &&
-                e.date.month == selectedDate!.month &&
-                e.date.day == selectedDate!.day).toList()
-            : [];
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CalendarView(
-              events: events,
-              onDateSelected: (date) {
-                setState(() {
-                  selectedDate = date;
-                });
-                if (onDaySelected != null) {
-                  onDaySelected!(date);
-                }
-              },
-            ),
-            if (selectedEvents.isNotEmpty) ...[
-              const SizedBox(height: AppTheme.spaceXl),
-              Text(
-                'Eventos del día',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: AppTheme.spaceMd),
-              ...selectedEvents.map((event) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppTheme.spaceMd),
-                  child: _EventCard(
-                    event: event,
-                    onTap: onEventTap != null ? () => onEventTap!(event) : null,
-                  ),
-                );
-              }),
-            ],
-          ],
-        );
+    return CalendarView(
+      events: events,
+      onDateSelected: (date) {
+        if (onDaySelected != null) {
+          onDaySelected!(date);
+        }
       },
     );
   }
@@ -527,11 +434,9 @@ class CalendarWithEvents extends StatelessWidget {
 
 class _EventCard extends StatelessWidget {
   final CalendarEvent event;
-  final VoidCallback? onTap;
 
   const _EventCard({
     required this.event,
-    this.onTap,
   });
 
   @override
@@ -540,7 +445,7 @@ class _EventCard extends StatelessWidget {
     final eventColor = event.color ?? AppTheme.primaryGreen;
 
     return InkWell(
-      onTap: onTap ?? () {},
+      // onTap parameter removed as it was unused
       child: Container(
         padding: const EdgeInsets.all(AppTheme.spaceLg),
         decoration: BoxDecoration(

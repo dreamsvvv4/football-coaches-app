@@ -88,6 +88,7 @@ class RealtimeService {
   // Connection state
   bool _isConnected = false;
   bool _isInitialized = false;
+  bool _manuallyDisconnected = false;
   late String _currentUserId;
   late String _currentUserRole;
 
@@ -104,6 +105,7 @@ class RealtimeService {
 
     _currentUserId = userId;
     _currentUserRole = userRole;
+    _manuallyDisconnected = false;
 
     // Initialize mock WebSocket (will be replaced with real implementation)
     _webSocket = WebSocketSimulator();
@@ -149,7 +151,9 @@ class RealtimeService {
       _webSocket.onDisconnect(() {
         if (kDebugMode) print('[Realtime] Disconnected from server');
         _isConnected = false;
-        _scheduleReconnect();
+        if (!_manuallyDisconnected) {
+          _scheduleReconnect();
+        }
       });
 
       _isConnected = true;
@@ -307,9 +311,16 @@ class RealtimeService {
 
   /// Force disconnect and cleanup
   void disconnect() {
+    _manuallyDisconnected = true;
     _debounceTimer?.cancel();
     _reconnectTimer?.cancel();
-    _webSocket.disconnect();
+    try {
+      if (_isInitialized) {
+        _webSocket.disconnect();
+      }
+    } catch (_) {
+      // Ignore: disconnect should be safe to call even if init failed.
+    }
     _isConnected = false;
     _isInitialized = false;
 
@@ -329,8 +340,6 @@ class WebSocketSimulator {
   bool _connected = false;
 
   Future<void> connect({required String url}) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 200));
     _connected = true;
   }
 
@@ -350,7 +359,11 @@ class WebSocketSimulator {
 
   void disconnect() {
     _connected = false;
-    _onDisconnectCallback();
+    try {
+      _onDisconnectCallback();
+    } catch (_) {
+      // Ignore: callbacks may be unset if connect/init never completed.
+    }
   }
 
   // Simulate receiving a message (for testing)

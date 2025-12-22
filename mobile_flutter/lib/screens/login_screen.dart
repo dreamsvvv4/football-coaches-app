@@ -24,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
     final response = await AuthService.instance.login(request);
     setState(() => _loading = false);
-    if (response != null) {
+    if (response) {
       if (!mounted) return;
       // Navegar a home
       Navigator.pushReplacementNamed(context, '/');

@@ -1,4 +1,6 @@
 import '../models/role.dart';
+import '../models/permissions.dart';
+import '../models/user_role.dart' as user_roles;
 import '../services/auth_service.dart';
 
 class PermissionService {
@@ -8,92 +10,49 @@ class PermissionService {
 
   // Define permissions per role. Keys are permission identifiers.
   // Add or change permissions here as app features grow.
-  final Map<Role, Set<String>> _rolePermissions = {
-    Role.coach: {
-      'teams:read',
-      'teams:write',
-      'matches:read',
-      'matches:write',
-      'tournaments:read',
-      'tournaments:write',
-    },
-    Role.player: {
-      'teams:read',
-      'matches:read',
-      'tournaments:read',
-    },
-    Role.clubAdmin: {
-      'teams:read',
-      'teams:write',
-      'clubs:write',
-      'tournaments:read',
-      'tournaments:write',
-    },
-    Role.referee: {
-      'matches:read',
-      'matches:write',
-    },
-    Role.fan: {
-      'tournaments:read',
-      'matches:read',
-    },
-    Role.superadmin: {
-      'teams:read',
-      'teams:write',
-      'clubs:write',
-      'tournaments:read',
-      'tournaments:write',
-      'users:write',
-      'system:admin',
-    },
-  };
+  // Deprecated: use enums only
+  // final Map<Role, Set<String>> _rolePermissions = {...}
 
-  // Check by permission string
-  bool hasPermission(String permission) {
-    final user = AuthService.instance.currentUser;
-    if (user == null) return false;
 
-    // First check contextual roles assigned to the user (if any)
-    final roles = AuthService.instance.currentUserRoles;
-    if (roles.isNotEmpty) {
-      for (final roleStr in roles) {
-        Role roleEnum;
-        try {
-          roleEnum = Role.values.firstWhere((r) => r.toString().split('.').last == roleStr);
-        } catch (_) {
-          continue;
-        }
-        final perms = _rolePermissions[roleEnum];
-        if (perms == null) continue;
-        if (perms.contains(permission)) return true;
+  // Nuevo: obtener permisos como enums
+  static List<Permission> getPermissionsForContext(dynamic context) {
+    if (context == null || (context is Map && context['role'] == null)) return [];
+    var roleType = context is Map
+        ? context['role']
+        : (context.role ?? context.toString());
+    // Mapear a UserRoleType si es necesario
+    if (roleType is String) {
+      try {
+        roleType = user_roles.UserRoleType.values.firstWhere((e) => e.toString().split('.').last == roleType);
+      } catch (_) {
+        return [];
       }
     }
-
-    // Fallback to primary role on user model
-    Role role;
-    try {
-      final roleStr = user.role is String
-          ? (user.role as String)
-          : user.role.toString().split('.').last;
-      role = Role.values.firstWhere((r) => r.toString().split('.').last == roleStr);
-    } catch (_) {
-      role = Role.coach;
+    if (roleType is user_roles.UserRoleType && rolePermissions.containsKey(roleType)) {
+      return List<Permission>.from(rolePermissions[roleType]!);
     }
-    final perms = _rolePermissions[role];
-    if (perms == null) return false;
-    return perms.contains(permission);
+    return [];
   }
 
-  // Convenience helpers
-  bool canCreateTournament() => hasPermission('tournaments:write');
-  bool canEditTeam() => hasPermission('teams:write');
-  bool canRecordMatch() => hasPermission('matches:write');
+  // Helpers actualizados para enums
+  static bool canCreateTournament(dynamic context) {
+    final perms = getPermissionsForContext(context);
+    // Un torneo se puede crear si tiene permiso de crear equipo o evento de club
+    return perms.contains(Permission.createTeam) || perms.contains(Permission.createClubEvent);
+  }
+  static bool canEditTeam(dynamic context) {
+    final perms = getPermissionsForContext(context);
+    return perms.contains(Permission.editTeam);
+  }
+  static bool canRecordMatch(dynamic context) {
+    final perms = getPermissionsForContext(context);
+    // Usar manageFriendly para registrar partidos amistosos
+    return perms.contains(Permission.manageFriendly);
+  }
 
-  // Premium planner access: allow coaches, club admins, superadmins
-  bool canUsePremiumPlanner() {
-    final user = AuthService.instance.currentUser;
-    if (user == null) return false;
-    final roleStr = user.role.toString().split('.').last;
-    return roleStr == 'coach' || roleStr == 'clubAdmin' || roleStr == 'superadmin';
+  static bool canUsePremiumPlanner(dynamic context) {
+    final perms = getPermissionsForContext(context);
+    // Usar createTraining como permiso premium de planner
+    return perms.contains(Permission.createTraining);
   }
 }

@@ -4,6 +4,7 @@ import '../widgets/premium_widgets.dart'; // Uses ActionButton
 import '../services/agenda_service.dart';
 import '../models/club_event.dart';
 import '../services/club_event_service.dart';
+import '../services/auth_service.dart';
 import '../services/permission_service.dart';
 
 class EventCreationScreen extends StatefulWidget {
@@ -209,7 +210,7 @@ class _EventCreationScreenState extends State<EventCreationScreen> {
                 minLines: 2,
                 maxLines: 4,
               ),
-              if (_type == ClubEventType.training && PermissionService.instance.canUsePremiumPlanner()) ...[
+              if (_type == ClubEventType.training && PermissionService.canUsePremiumPlanner(AuthService.instance.activeContext)) ...[
                 const SizedBox(height: AppTheme.spaceLg),
                 SwitchListTile(
                   value: _isRecurring,

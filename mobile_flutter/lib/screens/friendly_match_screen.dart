@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-
+import 'package:provider/provider.dart';
 import '../models/friendly_match.dart';
 import '../services/auth_service.dart';
+import '../services/permission_service.dart';
+import '../models/permissions.dart';
 import '../services/friendly_match_service.dart';
 import '../services/match_service.dart';
 import 'match_detail_screen.dart';
@@ -19,6 +22,18 @@ class _FriendlyMatchScreenState extends State<FriendlyMatchScreen> {
 
   String _statusFilter = 'all';
   String _searchQuery = '';
+  String _locationFilter = 'all';
+  int? _distanceFilterKm;
+
+  double? _tryParseKm(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final normalized = trimmed.replaceAll(',', '.');
+    final value = double.tryParse(normalized);
+    if (value == null) return null;
+    if (value.isNaN || value.isInfinite || value <= 0) return null;
+    return value;
+  }
 
   @override
   void initState() {
@@ -36,202 +51,170 @@ class _FriendlyMatchScreenState extends State<FriendlyMatchScreen> {
   }
 
   bool get _canCreateFriendly {
-    final role = AuthService.instance.currentUser?.role ?? 'coach';
-    final perms = AuthService.instance.getActionPermsForRole(role);
-    return perms.contains('create_friendly');
-  }
-
-  List<FriendlyMatch> _applyFilters(List<FriendlyMatch> matches) {
-    return matches.where((match) {
-      final statusOk = _statusFilter == 'all' || match.status.internalName == _statusFilter;
-      if (!statusOk) return false;
-      if (_searchQuery.isEmpty) return true;
-      final haystack = '${match.opponentClub} ${match.location} ${match.category}'.toLowerCase();
-      return haystack.contains(_searchQuery);
-    }).toList();
+    final perms = PermissionService.getPermissionsForContext(AuthService.instance.activeContext);
+    return perms.contains(Permission.manageFriendly) || perms.contains(Permission.createFriendlyRequest);
   }
 
   Map<FriendlyMatchStatus, int> _statusCounters(List<FriendlyMatch> matches) {
-    final counters = <FriendlyMatchStatus, int>{
-      FriendlyMatchStatus.proposed: 0,
-      FriendlyMatchStatus.accepted: 0,
-      FriendlyMatchStatus.rejected: 0,
-      FriendlyMatchStatus.cancelled: 0,
-    };
+    final counters = <FriendlyMatchStatus, int>{};
     for (final match in matches) {
-      counters[match.status] = (counters[match.status] ?? 0) + 1;
+      counters.update(match.status, (v) => v + 1, ifAbsent: () => 1);
     }
     return counters;
   }
 
+  List<FriendlyMatch> _applyFilters(List<FriendlyMatch> matches) {
+    Iterable<FriendlyMatch> filtered = matches;
+    if (_statusFilter != 'all') {
+      final status = FriendlyMatchStatus.values.firstWhere(
+        (s) => s.name == _statusFilter,
+        orElse: () => FriendlyMatchStatus.proposed,
+      );
+      filtered = filtered.where((m) => m.status == status);
+    }
+    if (_locationFilter != 'all') {
+      filtered = filtered.where((m) => m.location == _locationFilter);
+    }
+    if (_distanceFilterKm != null) {
+      final maxKm = _distanceFilterKm!.toDouble();
+      filtered = filtered.where((m) => (m.distanceKm ?? double.infinity) <= maxKm);
+    }
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((m) {
+        final haystack = '${m.opponentClub} ${m.location} ${m.category}'.toLowerCase();
+        return haystack.contains(_searchQuery);
+      });
+    }
+    return filtered.toList();
+  }
+
   Future<void> _openMatchForm({FriendlyMatch? existing}) async {
-    final formKey = GlobalKey<FormState>();
-    final opponentController = TextEditingController(text: existing?.opponentClub ?? '');
-    final contactController = TextEditingController(text: existing?.opponentContact ?? '');
+    final opponentClubController = TextEditingController(text: existing?.opponentClub ?? '');
+    final opponentContactController = TextEditingController(text: existing?.opponentContact ?? '');
     final locationController = TextEditingController(text: existing?.location ?? '');
     final notesController = TextEditingController(text: existing?.notes ?? '');
-    DateTime scheduledAt = existing?.scheduledAt ?? DateTime.now().add(const Duration(days: 1));
-    String category = existing?.category ?? _service.categories.first;
+    final distanceController = TextEditingController(
+      text: existing?.distanceKm != null ? existing!.distanceKm!.toStringAsFixed(0) : '',
+    );
 
-    bool saved = false;
+    DateTime scheduledAt = existing?.scheduledAt ?? DateTime.now().add(const Duration(days: 2));
+    String category = existing?.category ?? (_service.categories.isNotEmpty ? _service.categories.first : '');
 
-    await showDialog<void>(
+    final formKey = GlobalKey<FormState>();
+
+    Future<void> pickDateTime() async {
+      final date = await showDatePicker(
+        context: context,
+        initialDate: scheduledAt,
+        firstDate: DateTime.now(),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+      );
+      if (date == null) return;
+      final time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(scheduledAt),
+      );
+      if (time == null) return;
+      setState(() {
+        scheduledAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      });
+    }
+
+    final saved = await showDialog<bool>(
       context: context,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            Future<void> pickDate() async {
-              final picked = await showDatePicker(
-                context: context,
-                firstDate: DateTime.now(),
-                lastDate: DateTime.now().add(const Duration(days: 365)),
-                initialDate: scheduledAt,
-              );
-              if (picked != null) {
-                setDialogState(() {
-                  scheduledAt = DateTime(
-                    picked.year,
-                    picked.month,
-                    picked.day,
-                    scheduledAt.hour,
-                    scheduledAt.minute,
-                  );
-                });
-              }
-            }
-
-            Future<void> pickTime() async {
-              final picked = await showTimePicker(
-                context: context,
-                initialTime: TimeOfDay.fromDateTime(scheduledAt),
-              );
-              if (picked != null) {
-                setDialogState(() {
-                  scheduledAt = DateTime(
-                    scheduledAt.year,
-                    scheduledAt.month,
-                    scheduledAt.day,
-                    picked.hour,
-                    picked.minute,
-                  );
-                });
-              }
-            }
-
-            return AlertDialog(
-              title: Text(existing == null ? 'Proponer amistoso' : 'Editar amistoso'),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextFormField(
-                        controller: opponentController,
-                        decoration: const InputDecoration(labelText: 'Club rival'),
-                        validator: (value) => value == null || value.isEmpty ? 'Introduce el club rival' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: contactController,
-                        decoration: const InputDecoration(labelText: 'Contacto (opcional)'),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: locationController,
-                        decoration: const InputDecoration(labelText: 'Ubicación del partido'),
-                        validator: (value) => value == null || value.isEmpty ? 'Introduce una ubicación' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: category,
-                        decoration: const InputDecoration(labelText: 'Categoría'),
-                        items: _service.categories
-                            .map((cat) => DropdownMenuItem<String>(value: cat, child: Text(cat)))
-                            .toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setDialogState(() => category = value);
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Fecha'),
-                        subtitle: Text(_formatDate(scheduledAt)),
-                        trailing: const Icon(Icons.calendar_today),
-                        onTap: pickDate,
-                      ),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Hora'),
-                        subtitle: Text(_formatTime(scheduledAt)),
-                        trailing: const Icon(Icons.access_time),
-                        onTap: pickTime,
-                      ),
-                      TextFormField(
-                        controller: notesController,
-                        maxLines: 3,
-                        decoration: const InputDecoration(labelText: 'Notas (opcional)'),
-                      ),
-                    ],
+        return AlertDialog(
+          title: Text(existing == null ? 'Proponer amistoso' : 'Editar amistoso'),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: opponentClubController,
+                    decoration: const InputDecoration(labelText: 'Club rival'),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
                   ),
-                ),
+                  TextFormField(
+                    controller: opponentContactController,
+                    decoration: const InputDecoration(labelText: 'Contacto (opcional)'),
+                  ),
+                  TextFormField(
+                    controller: locationController,
+                    decoration: const InputDecoration(labelText: 'Ubicación'),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                  ),
+                  TextFormField(
+                    controller: distanceController,
+                    decoration: const InputDecoration(labelText: 'Distancia (km) (opcional)'),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: category.isEmpty ? null : category,
+                    items: _service.categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      category = value;
+                    },
+                    decoration: const InputDecoration(labelText: 'Categoría'),
+                    validator: (v) => (v == null || v.isEmpty) ? 'Requerido' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Fecha y hora'),
+                    subtitle: Text('${_formatDate(scheduledAt)} · ${_formatTime(scheduledAt)}'),
+                    trailing: const Icon(Icons.calendar_month),
+                    onTap: pickDateTime,
+                  ),
+                  TextFormField(
+                    controller: notesController,
+                    decoration: const InputDecoration(labelText: 'Notas (opcional)'),
+                    maxLines: 2,
+                  ),
+                ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancelar'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    if (!formKey.currentState!.validate()) return;
-                    if (existing == null) {
-                      _service.createMatch(
-                        opponentClub: opponentController.text.trim(),
-                        opponentContact: contactController.text.trim().isEmpty
-                            ? null
-                            : contactController.text.trim(),
-                        location: locationController.text.trim(),
-                        scheduledAt: scheduledAt,
-                        category: category,
-                        notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
-                        createdByMe: true,
-                      );
-                    } else {
-                      _service.updateMatch(
-                        existing.id,
-                        opponentClub: opponentController.text.trim(),
-                        opponentContact: contactController.text.trim().isEmpty
-                            ? null
-                            : contactController.text.trim(),
-                        location: locationController.text.trim(),
-                        scheduledAt: scheduledAt,
-                        category: category,
-                        notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
-                      );
-                    }
-                    saved = true;
-                    Navigator.pop(context);
-                  },
-                  child: Text(existing == null ? 'Crear' : 'Guardar'),
-                ),
-              ],
-            );
-          },
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() != true) return;
+                Navigator.pop(context, true);
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
         );
       },
     );
 
-    opponentController.dispose();
-    contactController.dispose();
-    locationController.dispose();
-    notesController.dispose();
+    if (saved != true) return;
 
-    if (saved && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(existing == null ? 'Amistoso propuesto' : 'Amistoso actualizado')),
+    if (existing == null) {
+      _service.createMatch(
+        opponentClub: opponentClubController.text.trim(),
+        opponentContact: opponentContactController.text.trim().isEmpty ? null : opponentContactController.text.trim(),
+        location: locationController.text.trim(),
+        distanceKm: _tryParseKm(distanceController.text),
+        scheduledAt: scheduledAt,
+        category: category,
+        notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
+        createdByMe: true,
+      );
+    } else {
+      _service.updateMatch(
+        existing.id,
+        opponentClub: opponentClubController.text.trim(),
+        opponentContact: opponentContactController.text.trim().isEmpty ? null : opponentContactController.text.trim(),
+        location: locationController.text.trim(),
+        distanceKm: _tryParseKm(distanceController.text),
+        scheduledAt: scheduledAt,
+        category: category,
+        notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
       );
     }
   }
@@ -265,98 +248,188 @@ class _FriendlyMatchScreenState extends State<FriendlyMatchScreen> {
       MaterialPageRoute(builder: (_) => MatchDetailScreen(matchId: match.id)),
     );
   }
+  
+    void _goToSearch() {
+      Navigator.pushNamed(context, '/friendly_matches/search');
+    }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('Amistosos'),
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
         centerTitle: false,
       ),
-      floatingActionButton: _canCreateFriendly
-          ? FloatingActionButton.extended(
-              heroTag: 'friendliesFab',
-              onPressed: () => _openMatchForm(),
-              icon: const Icon(Icons.add),
-              label: const Text('Proponer amistoso'),
-            )
-          : null,
+      floatingActionButton: Builder(
+        builder: (context) {
+          return Consumer<AuthService>(
+            builder: (context, auth, _) {
+              final perms = PermissionService.getPermissionsForContext(auth.activeContext);
+              final canCreate = perms.contains(Permission.manageFriendly) || perms.contains(Permission.createFriendlyRequest);
+              if (canCreate) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    FloatingActionButton.extended(
+                      heroTag: 'friendliesFab',
+                      onPressed: () => _openMatchForm(),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Proponer amistoso'),
+                    ),
+                    const SizedBox(height: 12),
+                    FloatingActionButton.extended(
+                      heroTag: 'searchFriendliesFab',
+                      onPressed: () => Navigator.pushNamed(context, '/friendly_matches/search'),
+                      icon: const Icon(Icons.search),
+                      label: const Text('Buscar amistosos'),
+                      backgroundColor: Colors.blueGrey,
+                    ),
+                  ],
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          );
+        },
+      ),
       body: ValueListenableBuilder<List<FriendlyMatch>>(
         valueListenable: _service.matchesNotifier,
         builder: (context, matches, _) {
           final filtered = _applyFilters(matches);
           final counters = _statusCounters(matches);
+          final locationOptions = <String>{...matches.map((m) => m.location)}.toList()..sort();
+
+          final list = ListView(
+            physics: const ClampingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 120),
+            children: [
+              _FriendliesHero(
+                totalMatches: matches.length,
+                accepted: counters[FriendlyMatchStatus.accepted] ?? 0,
+                onCreate: _canCreateFriendly ? () => _openMatchForm() : null,
+                canCreate: _canCreateFriendly,
+              ),
+              const SizedBox(height: 20),
+              _FriendliesHeader(total: matches.length, counters: counters),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _searchController,
+                decoration: const InputDecoration(
+                  labelText: 'Buscar por rival, ubicación o categoría',
+                  prefixIcon: Icon(Icons.search),
+                ),
+              ),
+              const SizedBox(height: 12),
+                          _StatusFilterBar(
+                            current: _statusFilter,
+                            onChanged: (value) => setState(() => _statusFilter = value),
+                          ),
+                          const SizedBox(height: 12),
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 260,
+                                    child: DropdownButtonFormField<String>(
+                                      value: _locationFilter,
+                                      items: [
+                                        const DropdownMenuItem(value: 'all', child: Text('Todas las ubicaciones')),
+                                        ...locationOptions.map(
+                                          (loc) => DropdownMenuItem(value: loc, child: Text(loc)),
+                                        ),
+                                      ],
+                                      onChanged: (v) => setState(() => _locationFilter = v ?? 'all'),
+                                      decoration: const InputDecoration(
+                                        labelText: 'Ubicación',
+                                        prefixIcon: Icon(Icons.place_outlined),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 220,
+                                    child: DropdownButtonFormField<int?>(
+                                      value: _distanceFilterKm,
+                                      items: const [
+                                        DropdownMenuItem(value: null, child: Text('Cualquier distancia')),
+                                        DropdownMenuItem(value: 5, child: Text('≤ 5 km')),
+                                        DropdownMenuItem(value: 10, child: Text('≤ 10 km')),
+                                        DropdownMenuItem(value: 25, child: Text('≤ 25 km')),
+                                        DropdownMenuItem(value: 50, child: Text('≤ 50 km')),
+                                        DropdownMenuItem(value: 100, child: Text('≤ 100 km')),
+                                      ],
+                                      onChanged: (v) => setState(() => _distanceFilterKm = v),
+                                      decoration: const InputDecoration(
+                                        labelText: 'Distancia',
+                                        prefixIcon: Icon(Icons.route_outlined),
+                                      ),
+                                    ),
+                                  ),
+                                  if (_locationFilter != 'all' || _distanceFilterKm != null)
+                                    TextButton.icon(
+                                      onPressed: () => setState(() {
+                                        _locationFilter = 'all';
+                                        _distanceFilterKm = null;
+                                      }),
+                                      icon: const Icon(Icons.clear),
+                                      label: const Text('Limpiar filtros'),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+              const SizedBox(height: 16),
+              if (filtered.isEmpty)
+                const _EmptyState()
+              else ...[
+                ...List.generate(filtered.length, (index) {
+                  final match = filtered[index];
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: index == filtered.length - 1 ? 0 : 16),
+                    child: _FriendlyMatchCard(
+                      match: match,
+                      onAccept: !match.createdByMe && match.status == FriendlyMatchStatus.proposed
+                          ? () => _acceptMatch(match)
+                          : null,
+                      onReject: !match.createdByMe && match.status == FriendlyMatchStatus.proposed
+                          ? () => _rejectMatch(match)
+                          : null,
+                      onCancel: match.createdByMe && match.status != FriendlyMatchStatus.cancelled
+                          ? () => _cancelMatch(match)
+                          : null,
+                      onEdit: match.createdByMe && match.status != FriendlyMatchStatus.cancelled
+                          ? () => _openMatchForm(existing: match)
+                          : null,
+                      onView: () => _openDetails(match),
+                    ),
+                  );
+                }),
+              ],
+            ],
+          );
 
           return Stack(
             children: [
               const _PageBackdrop(),
               Positioned.fill(
                 child: SafeArea(
-                  child: RefreshIndicator(
-                    color: theme.colorScheme.primary,
-                    backgroundColor: Colors.white,
-                    onRefresh: () async {
-                      await Future<void>.delayed(const Duration(milliseconds: 350));
-                      if (mounted) setState(() {});
-                    },
-                    child: ListView(
-                      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 120),
-                      children: [
-                        _FriendliesHero(
-                          totalMatches: matches.length,
-                          accepted: counters[FriendlyMatchStatus.accepted] ?? 0,
-                          onCreate: _canCreateFriendly ? () => _openMatchForm() : null,
+                  child: kIsWeb
+                      ? list
+                      : RefreshIndicator(
+                          color: theme.colorScheme.primary,
+                          backgroundColor: Colors.white,
+                          onRefresh: () async {
+                            await Future<void>.delayed(const Duration(milliseconds: 350));
+                            if (mounted) setState(() {});
+                          },
+                          child: list,
                         ),
-                        const SizedBox(height: 20),
-                        _FriendliesHeader(total: matches.length, counters: counters),
-                        const SizedBox(height: 20),
-                        TextField(
-                          controller: _searchController,
-                          decoration: const InputDecoration(
-                            labelText: 'Buscar por rival, ubicación o categoría',
-                            prefixIcon: Icon(Icons.search),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _StatusFilterBar(
-                          current: _statusFilter,
-                          onChanged: (value) => setState(() => _statusFilter = value),
-                        ),
-                        const SizedBox(height: 16),
-                        if (filtered.isEmpty)
-                          const _EmptyState()
-                        else ...[
-                          ...List.generate(filtered.length, (index) {
-                            final match = filtered[index];
-                            return Padding(
-                              padding: EdgeInsets.only(bottom: index == filtered.length - 1 ? 0 : 16),
-                              child: _FriendlyMatchCard(
-                                match: match,
-                                onAccept: !match.createdByMe && match.status == FriendlyMatchStatus.proposed
-                                    ? () => _acceptMatch(match)
-                                    : null,
-                                onReject: !match.createdByMe && match.status == FriendlyMatchStatus.proposed
-                                    ? () => _rejectMatch(match)
-                                    : null,
-                                onCancel: match.createdByMe && match.status != FriendlyMatchStatus.cancelled
-                                    ? () => _cancelMatch(match)
-                                    : null,
-                                onEdit: match.createdByMe && match.status != FriendlyMatchStatus.cancelled
-                                    ? () => _openMatchForm(existing: match)
-                                    : null,
-                                onView: () => _openDetails(match),
-                              ),
-                            );
-                          }),
-                        ],
-                      ],
-                    ),
-                  ),
                 ),
               ),
             ],
@@ -528,31 +601,36 @@ class _PageBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            primary.withValues(alpha: 0.18),
-            primary.withValues(alpha: 0.08),
-            Colors.transparent,
-          ],
+    return SizedBox.expand(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              primary.withValues(alpha: 0.18),
+              primary.withValues(alpha: 0.08),
+              Colors.transparent,
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
+
 class _FriendliesHero extends StatelessWidget {
   final int totalMatches;
   final int accepted;
   final VoidCallback? onCreate;
+  final bool canCreate;
 
   const _FriendliesHero({
     required this.totalMatches,
     required this.accepted,
     this.onCreate,
+    required this.canCreate,
   });
 
   @override
@@ -593,24 +671,25 @@ class _FriendliesHero extends StatelessWidget {
             style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.78)),
           ),
           const SizedBox(height: 20),
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _HeroMetric(label: 'Activos', value: '$totalMatches'),
-              const SizedBox(width: 18),
               _HeroMetric(label: 'Confirmados', value: '$accepted'),
-              const Spacer(),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: theme.colorScheme.primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              if (canCreate)
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: theme.colorScheme.primary,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: onCreate,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Nuevo amistoso'),
                 ),
-                onPressed: () => Navigator.pushNamed(context, '/friendly_matches/create'),
-                icon: const Icon(Icons.add),
-                label: const Text('Nuevo amistoso'),
-              ),
-              const SizedBox(width: 10),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
@@ -622,7 +701,6 @@ class _FriendliesHero extends StatelessWidget {
                 icon: const Icon(Icons.inbox),
                 label: const Text('Recibidas'),
               ),
-              const SizedBox(width: 10),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
@@ -710,61 +788,20 @@ class _FriendlyMatchCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text('${_formatFullDate(match.scheduledAt)} · ${match.location}'),
+                      if (match.distanceKm != null)
+                        Text('Distancia: ${match.distanceKm!.toStringAsFixed(0)} km'),
                       const SizedBox(height: 2),
                       Text('Categoría: ${match.category}'),
                       if (match.notes != null && match.notes!.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(match.notes!, style: Theme.of(context).textTheme.bodySmall),
-                        ),
+                        Text(match.notes!),
                     ],
                   ),
-                ),
-                Chip(
-                  label: Text(match.status.label),
-                  backgroundColor: statusColor.withValues(alpha: 0.15),
-                  labelStyle: TextStyle(color: statusColor, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
             const SizedBox(height: 16),
             _MatchTimelinePreview(matchId: match.id),
             const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (onAccept != null)
-                  FilledButton.icon(
-                    onPressed: onAccept,
-                    icon: const Icon(Icons.check_circle),
-                    label: const Text('Aceptar'),
-                  ),
-                if (onReject != null)
-                  OutlinedButton.icon(
-                    onPressed: onReject,
-                    icon: const Icon(Icons.close),
-                    label: const Text('Rechazar'),
-                  ),
-                if (onEdit != null)
-                  OutlinedButton.icon(
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit),
-                    label: const Text('Editar'),
-                  ),
-                if (onCancel != null)
-                  TextButton.icon(
-                    onPressed: onCancel,
-                    icon: const Icon(Icons.cancel_outlined),
-                    label: const Text('Cancelar'),
-                  ),
-                FilledButton.tonalIcon(
-                  onPressed: onView,
-                  icon: const Icon(Icons.analytics_outlined),
-                  label: const Text('Ver detalles'),
-                ),
-              ],
-            ),
           ],
         ),
       ),

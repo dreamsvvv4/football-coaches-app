@@ -16,6 +16,11 @@
 - Use HTTPS for all communications between the client and server to protect data in transit.
 - Implement WebSocket security measures for real-time updates.
 
+## Configuration Hardening (Backend)
+- `JWT_SECRET` is required and must be at least 32 characters.
+- Configure `CORS_ORIGINS` as a comma-separated allowlist (e.g. `https://admin.example.com,https://app.example.com`).
+- The API sets basic security headers (Helmet), disables `x-powered-by`, and enables a conservative rate limiter.
+
 ## Data Privacy
 - Ensure that personal data, especially for minors, is handled with care and complies with relevant data protection regulations (e.g., GDPR).
 - Implement user consent mechanisms for data collection and processing.

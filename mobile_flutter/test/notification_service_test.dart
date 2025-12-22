@@ -5,6 +5,8 @@ import '../lib/services/auth_service.dart';
 import '../lib/models/auth.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('NotificationService Tests', () {
     late NotificationService notificationService;
     late AuthService authService;
@@ -12,9 +14,13 @@ void main() {
     setUp(() async {
       // Initialize shared preferences mock
       SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      await AuthService.init(prefs);
 
       notificationService = NotificationService.instance;
       authService = AuthService.instance;
+
+      await notificationService.init(requestPermission: false);
 
       // Set up mock user
       final mockUser = User(
@@ -162,10 +168,12 @@ void main() {
         entityId: 'match_123',
       );
 
-      expect(
+      final future = expectLater(
         notificationService.notificationStream,
         emits(notification),
       );
+      await notificationService.storeNotification(notification);
+      await future;
     });
 
     test('Notification count increases when notification is added', () async {
@@ -271,10 +279,13 @@ void main() {
     });
 
     test('Connection status stream emits status changes', () async {
-      expect(
+      final future = expectLater(
         notificationService.connectionStatusStream,
-        emits(isTrue),
+        emitsInOrder([false, true]),
       );
+      await notificationService.disconnect();
+      await notificationService.init(requestPermission: false);
+      await future;
     });
 
     test('Can create PushNotification from data', () async {

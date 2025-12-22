@@ -1,34 +1,57 @@
-class Player {
-  final String id;
-  final String name;
-  final int age;
-  final int? number;
-  final String position;
-  final String? photoUrl;
-  final String? medicalNotes;
-  final String teamId;
+import 'package:flutter/material.dart';
 
-  Player({required this.id, required this.name, required this.age, this.number, required this.position, this.photoUrl, this.medicalNotes, required this.teamId});
+class Player {
+  String id;
+  String name;
+  int number;
+  String position;
+  String dominantFoot;
+  DateTime birthDate;
+  String country;
+  String countryCode;
+  String? photoPath;
+  String? medicalNote;
+  int convocatorias;
+
+  Player({
+    this.id = '',
+    required this.name,
+    required this.number,
+    required this.position,
+    required this.dominantFoot,
+    required this.birthDate,
+    required this.country,
+    required this.countryCode,
+    this.photoPath,
+    this.medicalNote,
+    this.convocatorias = 0,
+  });
 
   factory Player.fromJson(Map<String, dynamic> json) => Player(
-    id: json['id'] as String,
+    id: json['id'] as String? ?? '',
     name: json['name'] as String,
-    age: json['age'] as int,
-    number: json['number'] as int?,
-    position: json['position'] as String? ?? 'Unknown',
-    photoUrl: json['photoUrl'] as String?,
-    medicalNotes: json['medicalNotes'] as String?,
-    teamId: json['teamId'] as String,
+    number: json['number'] as int,
+    position: json['position'] as String,
+    dominantFoot: json['dominantFoot'] as String,
+    birthDate: DateTime.parse(json['birthDate'] as String),
+    country: json['country'] as String,
+    countryCode: json['countryCode'] as String,
+    photoPath: json['photoPath'] as String?,
+    medicalNote: json['medicalNote'] as String?,
+    convocatorias: json['convocatorias'] as int? ?? 0,
   );
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
-    'age': age,
     'number': number,
     'position': position,
-    'photoUrl': photoUrl,
-    'medicalNotes': medicalNotes,
-    'teamId': teamId,
+    'dominantFoot': dominantFoot,
+    'birthDate': birthDate.toIso8601String(),
+    'country': country,
+    'countryCode': countryCode,
+    'photoPath': photoPath,
+    'medicalNote': medicalNote,
+    'convocatorias': convocatorias,
   };
 }

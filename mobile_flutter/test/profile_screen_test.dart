@@ -10,6 +10,8 @@ void main() {
   group('ProfileScreen Venue Selection Tests', () {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      await AuthService.init(prefs);
       await VenueService.instance.init();
       
       // Set up a mock user
@@ -72,7 +74,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Try to tap dropdown to see options
-      final dropdowns = find.byType(DropdownButtonFormField);
+      final dropdowns = find.byType(DropdownButtonFormField<String>);
       expect(dropdowns, findsWidgets);
     });
 
@@ -151,17 +153,16 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Find the venue dropdown
-      final dropdowns = find.byType(DropdownButtonFormField<String>);
-      
-      if (dropdowns.evaluate().length > 2) {
-        // The venue dropdown should be one of the later dropdowns
-        await tester.tap(dropdowns.at(2)); // Assuming venue is 3rd dropdown
-        await tester.pumpAndSettle();
+      // The venue dropdown key is based on number of venues.
+      final venueDropdown = find.byKey(const ValueKey('venue_dropdown_5'));
+      expect(venueDropdown, findsOneWidget);
 
-        // A menu should appear
-        expect(find.byType(DropdownButton), findsWidgets);
-      }
+      await tester.ensureVisible(venueDropdown);
+      await tester.tap(venueDropdown);
+      await tester.pumpAndSettle();
+
+      // Menu items should include seeded venues.
+      expect(find.text('Campo Municipal Centro'), findsWidgets);
     });
 
     testWidgets('Venue field maintains selection after toggle', (WidgetTester tester) async {
@@ -188,7 +189,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Find and tap a role button
-      final segments = find.byType(SegmentedButton);
+      final segments = find.byType(SegmentedButton<String>);
       expect(segments, findsWidgets);
     });
 

@@ -2,8 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../services/auth_service.dart';
 import '../services/mock_auth_service.dart';
-// import '../services/permission_service.dart';
+import '../services/permission_service.dart';
 
 class TournamentScreen extends StatefulWidget {
   const TournamentScreen({super.key});
@@ -640,9 +641,9 @@ class _TournamentScreenState extends State<TournamentScreen> {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             final mediaQuery = MediaQuery.of(context);
-            final canEditTeams = true; // PermissionService.instance.canEditTeam();
-            final canManageTournament = true; // PermissionService.instance.canCreateTournament();
-            final canRecordMatches = true; // PermissionService.instance.canRecordMatch();
+            final canEditTeams = PermissionService.canEditTeam(AuthService.instance.activeContext);
+            final canManageTournament = PermissionService.canCreateTournament(AuthService.instance.activeContext);
+            final canRecordMatches = PermissionService.canRecordMatch(AuthService.instance.activeContext);
 
             void addTeam() {
               if (!canEditTeams) return;

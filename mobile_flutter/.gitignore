@@ -33,6 +33,14 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Local test artifacts
+.test_output.txt
+test_output.txt
+flutter_test_result.txt
+flutter_test_final.txt
+test_results.txt
+test_result_fixed.txt
+
 # Symbolication related
 app.*.symbols
 

@@ -41,6 +41,12 @@ class FriendlyMatchService {
       'date': Timestamp.fromDate(req.proposedDate),
       'location': req.proposedLocation,
       'createdFromRequestId': req.id,
+      'category': req.category,
+      'createdAt': Timestamp.now(),
+      'createdByMe': req.createdByMe,
+      'opponentClub': req.opponentClub,
+      'scheduledAt': Timestamp.fromDate(req.scheduledAt),
+      'status': req.status.toString().split('.').last,
     });
     // Integrar con AgendaService (local)
     // TODO: Lógica para ambos equipos, aquí solo ejemplo local
@@ -64,12 +70,30 @@ class FriendlyMatchService {
   Future<void> convertToMatch(FriendlyMatchRequest request) async {
     final match = FriendlyMatch(
       id: '', // Firestore will assign
-      teamAId: request.fromTeamId,
-      teamBId: request.toTeamId,
-      date: request.proposedDate,
+      opponentClub: request.opponentClub,
       location: request.proposedLocation,
-      createdFromRequestId: request.id,
+      scheduledAt: request.scheduledAt,
+      category: request.category,
+      status: _mapRequestStatusToMatchStatus(request.status),
+      createdByMe: request.createdByMe,
+      createdAt: DateTime.now(),
     );
+
     await _firestore.collection('friendly_matches').add(match.toMap());
+  }
+
+  // Helper to map request status to match status
+  FriendlyMatchStatus _mapRequestStatusToMatchStatus(FriendlyMatchRequestStatus status) {
+    switch (status) {
+      case FriendlyMatchRequestStatus.accepted:
+        return FriendlyMatchStatus.accepted;
+      case FriendlyMatchRequestStatus.rejected:
+        return FriendlyMatchStatus.rejected;
+      case FriendlyMatchRequestStatus.modified:
+        return FriendlyMatchStatus.proposed;
+      case FriendlyMatchRequestStatus.pending:
+      default:
+        return FriendlyMatchStatus.proposed;
+    }
   }
 }

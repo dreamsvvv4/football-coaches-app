@@ -11,6 +11,8 @@ import 'services/club_event_service.dart';
 import 'models/club_event.dart';
 import 'screens/home/main_app.dart';
 import 'services/auth_service.dart';
+import 'services/club_registry.dart';
+import 'models/club.dart';
 import 'theme/app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'services/friendly_match_service.dart';
@@ -21,7 +23,7 @@ Future<void> main() async {
 
   // Initialize SharedPreferences for auth system
   final prefs = await SharedPreferences.getInstance();
-  final authService = AuthService(prefs);
+  await AuthService.init(prefs);
 
   // Initialize theme provider
   final themeProvider = ThemeProvider();
@@ -30,6 +32,36 @@ Future<void> main() async {
   // Bootstrap demo data en debug y crear partido premium de ejemplo
   assert(() {
     try {
+      ClubRegistry.clubs = [
+        Club(
+          id: 'club1',
+          name: 'Real Madrid CF',
+          city: 'Madrid',
+          country: 'España',
+          crestUrl: null,
+          description: 'El club más exitoso de Europa',
+          foundedYear: 1902,
+        ),
+        Club(
+          id: 'club2',
+          name: 'FC Barcelona',
+          city: 'Barcelona',
+          country: 'España',
+          crestUrl: null,
+          description: 'Equipo histórico catalán',
+          foundedYear: 1899,
+        ),
+        Club(
+          id: 'club3',
+          name: 'Atlético Madrid',
+          city: 'Madrid',
+          country: 'España',
+          crestUrl: null,
+          description: 'Club rival del Real Madrid',
+          foundedYear: 1903,
+        ),
+      ];
+
       FriendlyMatchService.instance.bootstrapSampleData();
       ClubEventService.instance.createEvent(
         ClubEvent(
@@ -44,7 +76,6 @@ Future<void> main() async {
           createdByUserId: 'user_coach_001',
           attendees: const [],
         ),
-        notify: false,
       );
     } catch (_) {}
     return true;
@@ -53,7 +84,7 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider<AuthService>(create: (_) => authService),
+        ChangeNotifierProvider<AuthService>(create: (_) => AuthService.instance),
         ChangeNotifierProvider<ThemeProvider>(create: (_) => themeProvider),
       ],
       child: Builder(

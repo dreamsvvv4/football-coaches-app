@@ -1,30 +1,48 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import bodyParser from 'body-parser';
 import cors from 'cors';
-import { authRoutes } from './routes/auth.routes';
-import { usersRoutes } from './routes/users.routes';
-import { clubsRoutes } from './routes/clubs.routes';
-import { matchesRoutes } from './routes/matches.routes';
-import { teamsRoutes } from './routes/teams.routes';
-import { tournamentsRoutes } from './routes/tournaments.routes';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import authRoutes from './routes/auth.routes';
+import usersRoutes from './routes/users.routes';
+import clubsRoutes from './routes/clubs.routes';
+import matchesRoutes from './routes/matches.routes';
 import { logger } from './utils/logger';
+import { buildCorsOptions, getJwtSecret } from './utils/security';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Fail fast on critical configuration
+getJwtSecret();
+
 // Middleware
-app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.disable('x-powered-by');
+app.use(
+    helmet({
+        // API-first service; leave CSP to frontends/CDN.
+        contentSecurityPolicy: false,
+    })
+);
+
+app.use(
+    rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 300,
+        standardHeaders: true,
+        legacyHeaders: false,
+    })
+);
+
+app.use(cors(buildCorsOptions()));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/clubs', clubsRoutes);
 app.use('/api/matches', matchesRoutes);
-app.use('/api/teams', teamsRoutes);
-app.use('/api/tournaments', tournamentsRoutes);
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/football-coaches-app', {

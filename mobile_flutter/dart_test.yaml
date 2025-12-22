@@ -1,0 +1,3 @@
+# Ensures stable `flutter test` runs on Windows.
+# Prevents a Flutter tool cleanup race when multiple suites finalize in parallel.
+concurrency: 1

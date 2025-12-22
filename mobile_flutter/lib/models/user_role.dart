@@ -1,37 +1,50 @@
-/// Representa la relación entre un User, su Role y el contexto (Club/Team)
-/// Un usuario puede ser coach en un equipo y admin en otro club
+enum UserRoleType {
+  superadmin,
+  adminClub,
+  entrenador,
+  padre,
+  jugador,
+}
+
 class UserRole {
   final String userId;
-  final String role; // coach, player, clubAdmin, referee, fan, superadmin
-  final String? clubId; // contexto: a qué club pertenece
-  final String? teamId; // contexto: a qué equipo pertenece
+  final String clubId;
+  final String? teamId;
+  final UserRoleType role;
   final DateTime assignedAt;
 
   UserRole({
     required this.userId,
-    required this.role,
-    this.clubId,
+    required this.clubId,
     this.teamId,
+    required this.role,
     required this.assignedAt,
   });
 
   factory UserRole.fromJson(Map<String, dynamic> json) => UserRole(
     userId: json['userId'] as String,
-    role: json['role'] as String,
-    clubId: json['clubId'] as String?,
+    clubId: json['clubId'] as String,
     teamId: json['teamId'] as String?,
+    role: UserRoleType.values.firstWhere((e) => e.toString().split('.').last == (json['role'] as String)),
     assignedAt: DateTime.parse(json['assignedAt'] as String),
   );
 
   Map<String, dynamic> toJson() => {
     'userId': userId,
-    'role': role,
     'clubId': clubId,
     'teamId': teamId,
+    'role': role.toString().split('.').last,
     'assignedAt': assignedAt.toIso8601String(),
   };
 
-  // Verificar si este rol aplica en cierto contexto
   bool appliesToClub(String clubId) => this.clubId == clubId;
   bool appliesToTeam(String teamId) => this.teamId == teamId;
+}
+
+class ActiveContext {
+  String clubId;
+  String? teamId;
+  UserRoleType role;
+
+  ActiveContext({required this.clubId, this.teamId, required this.role});
 }

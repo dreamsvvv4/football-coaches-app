@@ -59,4 +59,10 @@ class FriendlyMatchRequest {
       'notes': notes,
     };
   }
+
+  // Add missing getters for compatibility
+  String get category => 'friendly';
+  String get opponentClub => toClubId;
+  DateTime get scheduledAt => proposedDate;
+  bool get createdByMe => false;
 }

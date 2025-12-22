@@ -374,7 +374,7 @@ class AuthState extends Equatable {
         token: null,
         isLoading: false,
         error: null,
-        isFirstLogin: true,
+      isFirstLogin: false,
       );
 
   factory AuthState.loading() => const AuthState(

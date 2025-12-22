@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/permission_service.dart';
+import '../services/auth_service.dart';
 import 'premium_widgets.dart';
 
 class PremiumEmptyState extends StatelessWidget {
@@ -17,15 +18,15 @@ class PremiumEmptyState extends StatelessWidget {
     this.canCreateOverride,
   });
 
-  bool _canCreate() {
+  bool _canCreate(BuildContext context) {
     if (canCreateOverride != null) return canCreateOverride!;
-    return PermissionService.instance.canRecordMatch();
+    return PermissionService.canRecordMatch(AuthService.instance.activeContext);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final showCta = onCreate != null && _canCreate();
+    final showCta = onCreate != null && _canCreate(context);
 
     return Padding(
       padding: const EdgeInsets.all(AppTheme.space2xl),

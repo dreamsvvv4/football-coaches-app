@@ -1,59 +1,76 @@
-# Football Coaches App
+# Football Coaches App (Premium) — guía sencilla
 
-## Overview
-The Football Coaches App is a comprehensive platform designed to facilitate communication, organization, and management for football coaches, players, clubs, and fans. The app provides tools for managing teams, organizing matches, and enhancing the overall experience of football training and competitions.
+Este repositorio contiene una plataforma “premium” para clubes y entrenadores: equipos, jugadores, calendario, notificaciones, búsqueda/creación de amistosos y convocatorias.
 
-## Features
+Objetivo de esta limpieza: dejar **solo lo útil y funcional** como núcleo, y apartar lo antiguo/experimental.
 
-### User Roles
-- **Coaches**: Manage teams, players, and matches.
-- **Players**: View personal stats and team information.
-- **Clubs/Administrators**: Oversee club activities and manage teams.
-- **Referees**: Manage match officiating and record incidents.
-- **Fans**: Follow teams and receive updates (optional).
-- **Superadmin**: Global control over the platform.
+## Núcleo recomendado (lo que se mantiene)
 
-### Sports Management
-- **Clubs and Teams**: Register clubs and create teams by categories (e.g., Sub-8, Sub-14).
-- **Player Management**: Maintain player profiles with stats, medical notes, and historical data.
-- **Match Organization**: Schedule friendly matches and tournaments with automated calendars and standings.
+Estructura (nivel alto):
+```
+mobile_flutter/  App principal (Flutter) — lo que vas a probar y usar
+backend/         API (Node.js/Express) — para modo “real” con servidor
+web-admin/       Panel web (React) — administración de club (opcional)
+shared/          Tipos/utilidades compartidas (TypeScript)
+docs/            Documentación (técnica + testing)
+scripts/         Scripts auxiliares
+ARCHIVE/         Material legado/archivado (no forma parte del núcleo)
+```
 
-### Communication Tools
-- **Chat Functionality**: Enable communication between coaches and players through individual and group chats.
-- **Media Sharing**: Share photos, tactics, and videos.
+`ARCHIVE/` contiene lo que se ha apartado para simplificar (React Native, infraestructura, microservicios, etc.). Si más adelante lo necesitas, sigue ahí.
 
-### Notifications
-- **Real-Time Alerts**: Receive notifications for upcoming matches, chat messages, and changes in schedules.
+## Probar la app manualmente (Windows)
 
-### Modern Design
-- **User-Friendly Interface**: A clean and professional design inspired by current sports apps.
-- **Interactive Elements**: Features like match timelines and live updates enhance user engagement.
+### Opción A: App nativa Windows
+```powershell
+Set-Location c:\Users\vvvfb\Documents\football-coaches-app\mobile_flutter
+flutter pub get
+flutter run -d windows
+```
 
-### Architecture
-- **Mobile App**: Available on Android and iOS.
-- **Web Admin Interface**: For club management and administrative tasks.
-- **Backend Services**: Robust API and real-time capabilities for seamless operation.
+### Opción B: Web (Chrome)
+```powershell
+Set-Location c:\Users\vvvfb\Documents\football-coaches-app\mobile_flutter
+flutter pub get
+flutter run -d chrome
+```
 
-### Security Measures
-- **Role-Based Access Control**: Ensure users have appropriate permissions.
-- **Data Protection**: Secure handling of personal information, especially for minors.
-- **Encrypted Communication**: Protect chat and notification data.
+Notas:
+- La documentación propia de Flutter está en `mobile_flutter/README.md`.
+- En `mobile_flutter/lib/main.dart` hay datos demo en debug para poder navegar y probar sin backend.
 
-## Additional Improvement Ideas
-- **Training Resources**: Share training exercises and sessions among coaches.
-- **Automated Statistics**: Track player performance and generate reports.
-- **Referee Mode**: Allow referees to create official match reports.
-- **Public Club Profiles**: Showcase club achievements and upcoming events.
-- **Fan Engagement**: Enable fans to follow their favorite teams and receive tailored notifications.
-- **Field Locator**: Provide maps and directions to match venues.
-- **Tournament Management**: Facilitate external tournament registrations and management.
-- **Ranking System**: Display team rankings and highlight standout players and coaches.
+## Backend (modo “real”)
 
-## Getting Started
-To get started with the Football Coaches App, clone the repository and follow the setup instructions in the respective mobile, web, and backend directories.
+Si quieres que sea 100% “premium” con servidor y datos persistentes, el backend está en `backend/`.
 
-## Contributing
-Contributions are welcome! Please submit a pull request or open an issue for any enhancements or bug fixes.
+Importante (para no romper nada):
+- El backend actual usa **MongoDB (mongoose)** (`MONGODB_URI`).
+- Existe `backend/prisma/schema.prisma`, pero ahora mismo **no parece estar conectado** al backend.
+- La infraestructura Docker/K8s/Terraform se movió a `ARCHIVE/` porque no está alineada (había Postgres y el backend usa MongoDB).
 
-## License
-This project is licensed under the MIT License - see the LICENSE file for details.
+Arranque básico (requiere Node.js + MongoDB):
+```powershell
+Set-Location c:\Users\vvvfb\Documents\football-coaches-app\backend
+npm install
+npm run dev
+```
+
+## Testing (pasos guiados)
+
+Documentos recomendados:
+- `docs/testing/START_TESTING_HERE.md`
+- `docs/testing/MVP_TESTING_QUICK_START.md`
+- `docs/testing/MVP_TESTING_CHECKLIST.md`
+
+## Limpieza segura (lo que se puede borrar localmente)
+
+En `mobile_flutter/` se pueden borrar sin riesgo:
+- `build/`
+- `.dart_tool/`
+- logs/resultados locales (`*.log`, `*.txt`) si son solo reportes
+
+Comando útil:
+```powershell
+Set-Location c:\Users\vvvfb\Documents\football-coaches-app\mobile_flutter
+flutter clean
+```

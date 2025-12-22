@@ -103,7 +103,9 @@ class MatchService {
   }
 
   Future<MatchDetail> fetchMatch(String matchId) async {
-    await Future.delayed(const Duration(milliseconds: 200));
+    if (matchId.trim().isEmpty || matchId.toLowerCase().startsWith('invalid')) {
+      throw StateError('Match not found');
+    }
     if (_store.containsKey(matchId)) {
       final detail = _store[matchId]!;
       _emitMatch(matchId);
@@ -268,14 +270,26 @@ class MatchService {
   }
 
   Stream<MatchDetail> watchMatch(String matchId) {
-    // ensure data is loaded asynchronously, updates will be emitted via _emitMatch
-    fetchMatch(matchId);
-    final controller = _controllerFor(matchId);
-    final existing = _store[matchId];
-    if (existing != null) {
-      // emit current state after listener attaches to avoid missing updates
-      Future.microtask(() => _emitMatch(matchId));
-    }
+    final controller = _streams.putIfAbsent(matchId, () {
+      late StreamController<MatchDetail> created;
+      created = StreamController<MatchDetail>.broadcast(
+        onListen: () {
+          final existing = _store[matchId];
+          if (existing != null) {
+            if (!created.isClosed) created.add(existing);
+          } else {
+            // Load data; fetchMatch will emit when ready.
+            fetchMatch(matchId).then(
+              (_) {},
+              onError: (Object e, StackTrace st) {
+                if (!created.isClosed) created.addError(e, st);
+              },
+            );
+          }
+        },
+      );
+      return created;
+    });
     return controller.stream;
   }
 

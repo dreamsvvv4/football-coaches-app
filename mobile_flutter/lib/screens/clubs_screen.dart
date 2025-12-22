@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/club.dart';
+import '../services/club_registry.dart';
 
 class ClubsScreen extends StatefulWidget {
   const ClubsScreen({super.key});
@@ -38,6 +39,13 @@ class _ClubsScreenState extends State<ClubsScreen> {
       foundedYear: 1903,
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Register demo clubs globally
+    ClubRegistry.clubs = _clubs;
+  }
 
   void _editClub(Club club) {
     Navigator.push(

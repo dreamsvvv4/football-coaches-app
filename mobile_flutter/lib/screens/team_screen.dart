@@ -1,124 +1,44 @@
 import 'package:flutter/material.dart';
+import '../models/club.dart';
+import '../models/player.dart';
+import '../services/permission_service.dart';
+import '../models/permissions.dart';
+import '../services/auth_service.dart';
 import 'club_form_screen.dart';
 import 'team_form_screen.dart';
 import 'player_form_screen.dart';
 
-class PlayerItem {
-  int number;
-  String name;
-  String position;
-  String? medicalNote;
-  String dominantFoot;
-  DateTime birthDate;
-  String? photoPath;
-  String country;
-  String countryCode;
-  int convocatorias;
-  PlayerItem({
-    required this.number,
-    required this.name,
-    required this.position,
-    required this.dominantFoot,
-    required this.birthDate,
-    required this.country,
-    required this.countryCode,
-    this.photoPath,
-    this.medicalNote,
-    this.convocatorias = 0,
-  });
-}
-
 class TeamScreen extends StatefulWidget {
-  const TeamScreen({Key? key}) : super(key: key);
+  final Club club;
+  const TeamScreen({Key? key, required this.club}) : super(key: key);
   @override
   State<TeamScreen> createState() => _TeamScreenState();
 }
 
 class _TeamScreenState extends State<TeamScreen> {
-    void _editPlayerDialog(int index) {
-      final player = _players[index];
-      final nameController = TextEditingController(text: player.name);
-      final numberController = TextEditingController(text: player.number.toString());
-      String position = player.position;
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Editar jugador'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Nombre'),
-              ),
-              TextField(
-                controller: numberController,
-                decoration: const InputDecoration(labelText: 'Número'),
-                keyboardType: TextInputType.number,
-              ),
-              DropdownButton<String>(
-                value: position,
-                items: ['Portero', 'Defensa', 'Centrocampista', 'Delantero']
-                    .map((p) => DropdownMenuItem(value: p, child: Text(p)))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    position = value;
-                    setState(() {});
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final name = nameController.text.trim();
-                final number = int.tryParse(numberController.text.trim()) ?? 0;
-                if (name.isNotEmpty && number > 0) {
-                  setState(() {
-                    player.name = name;
-                    player.number = number;
-                    player.position = position;
-                  });
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Guardar'),
-            ),
-          ],
-        ),
-      );
-    }
-  final List<PlayerItem> _players = List.generate(
-    16,
-    (i) => PlayerItem(
-      number: i + 1,
-      name: 'Jugador ${i + 1}',
-      position: 'Portero',
-      dominantFoot: 'Derecha',
-      birthDate: DateTime(2000, 1, 1),
-      country: 'España',
-      countryCode: 'ES',
-    ),
-  );
+  List<Player> _players = [];
 
-  final String clubName = 'Real Club';
+  // Controllers and state for add/edit dialogs
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController surnameController = TextEditingController();
+  final TextEditingController numberController = TextEditingController();
+  final TextEditingController countryController = TextEditingController();
+  final TextEditingController countryCodeController = TextEditingController();
+  String position = 'Centrocampista';
+  String dominantFoot = 'Derecha';
+  DateTime? birthDate;
+  String? photoPath;
 
   void _addPlayerDialog() {
-    final nameController = TextEditingController();
-    final surnameController = TextEditingController();
-    final numberController = TextEditingController();
-    String position = 'Portero';
-    String dominantFoot = 'Derecha';
-    DateTime? birthDate;
-    String? photoPath;
-    final countryController = TextEditingController();
-    final countryCodeController = TextEditingController();
+    nameController.clear();
+    surnameController.clear();
+    numberController.clear();
+    countryController.clear();
+    countryCodeController.clear();
+    position = 'Centrocampista';
+    dominantFoot = 'Derecha';
+    birthDate = null;
+    photoPath = null;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -136,120 +56,121 @@ class _TeamScreenState extends State<TeamScreen> {
                 decoration: const InputDecoration(labelText: 'Apellidos'),
               ),
               TextField(
-                    controller: numberController,
-                    decoration: const InputDecoration(labelText: 'Número'),
-                    keyboardType: TextInputType.number,
+                controller: numberController,
+                decoration: const InputDecoration(labelText: 'Número'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: countryController,
+                decoration: const InputDecoration(labelText: 'País'),
+              ),
+              TextField(
+                controller: countryCodeController,
+                decoration: const InputDecoration(labelText: 'Código país (ej: ES, FR, BR)'),
+              ),
+              DropdownButton<String>(
+                value: position,
+                items: ['Portero', 'Defensa', 'Centrocampista', 'Delantero']
+                    .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      position = value;
+                    });
+                  }
+                },
+              ),
+              DropdownButton<String>(
+                value: dominantFoot,
+                items: ['Derecha', 'Izquierda', 'Ambas']
+                    .map((f) => DropdownMenuItem(value: f, child: Text(f)))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      dominantFoot = value;
+                    });
+                  }
+                },
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(birthDate == null
+                        ? 'Fecha de nacimiento'
+                        : '${birthDate!.day}/${birthDate!.month}/${birthDate!.year}'),
                   ),
-                  TextField(
-                    controller: countryController,
-                    decoration: const InputDecoration(labelText: 'País'),
-                  ),
-                  TextField(
-                    controller: countryCodeController,
-                    decoration: const InputDecoration(labelText: 'Código país (ej: ES, FR, BR)'),
-                  ),
-                  DropdownButton<String>(
-                    value: position,
-                    items: ['Portero', 'Defensa', 'Centrocampista', 'Delantero']
-                        .map((p) => DropdownMenuItem(value: p, child: Text(p)))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        position = value;
-                        setState(() {});
+                  IconButton(
+                    icon: const Icon(Icons.calendar_today),
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime(2010, 1, 1),
+                        firstDate: DateTime(1990),
+                        lastDate: DateTime(DateTime.now().year - 4),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          birthDate = picked;
+                        });
                       }
                     },
-                  ),
-                  DropdownButton<String>(
-                    value: dominantFoot,
-                    items: ['Derecha', 'Izquierda', 'Ambas']
-                        .map((f) => DropdownMenuItem(value: f, child: Text(f)))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        dominantFoot = value;
-                        setState(() {});
-                      }
-                    },
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(birthDate == null
-                            ? 'Fecha de nacimiento'
-                            : '${birthDate!.day}/${birthDate!.month}/${birthDate!.year}'),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.calendar_today),
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: DateTime(2010, 1, 1),
-                            firstDate: DateTime(1990),
-                            lastDate: DateTime(DateTime.now().year - 4),
-                          );
-                          if (picked != null) {
-                            birthDate = picked;
-                            setState(() {});
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(photoPath == null ? 'Sin foto' : 'Foto seleccionada'),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.photo_camera),
-                        onPressed: () async {
-                          // Aquí iría la lógica de selección de foto (ejemplo con image_picker)
-                          // photoPath = await pickImage();
-                          // setState(() {});
-                        },
-                      ),
-                    ],
                   ),
                 ],
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final name = nameController.text.trim();
-                  final surname = surnameController.text.trim();
-                  final number = int.tryParse(numberController.text.trim()) ?? 0;
-                  final country = countryController.text.trim();
-                  final countryCode = countryCodeController.text.trim().toUpperCase();
-                  if (name.isNotEmpty && surname.isNotEmpty && number > 0 && birthDate != null && country.isNotEmpty && countryCode.isNotEmpty) {
-                    setState(() {
-                      _players.add(PlayerItem(
-                        number: number,
-                        name: '$name $surname',
-                        position: position,
-                        dominantFoot: dominantFoot,
-                        birthDate: birthDate!,
-                        country: country,
-                        countryCode: countryCode,
-                        photoPath: photoPath,
-                        medicalNote: '',
-                        convocatorias: 0,
-                      ));
-                    });
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text('Guardar'),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(photoPath == null ? 'Sin foto' : 'Foto seleccionada'),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.photo_camera),
+                    onPressed: () async {
+                      // TODO: Implement photo picker
+                    },
+                  ),
+                ],
               ),
             ],
           ),
-        );
-      }
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              final surname = surnameController.text.trim();
+              final number = int.tryParse(numberController.text.trim()) ?? 0;
+              final country = countryController.text.trim();
+              final countryCode = countryCodeController.text.trim().toUpperCase();
+              if (name.isNotEmpty && surname.isNotEmpty && number > 0 && birthDate != null && country.isNotEmpty && countryCode.isNotEmpty) {
+                setState(() {
+                  _players.add(Player(
+                    number: number,
+                    name: '$name $surname',
+                    position: position,
+                    dominantFoot: dominantFoot,
+                    birthDate: birthDate!,
+                    country: country,
+                    countryCode: countryCode,
+                    photoPath: photoPath,
+                    medicalNote: '',
+                    convocatorias: 0,
+                  ));
+                });
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _editMedicalNoteDialog(int index) {
     final player = _players[index];
@@ -281,6 +202,149 @@ class _TeamScreenState extends State<TeamScreen> {
       ),
     );
   }
+  void _editPlayerDialog(int index) {
+    final player = _players[index];
+    nameController.text = player.name;
+    surnameController.text = '';
+    numberController.text = player.number.toString();
+    countryController.text = player.country;
+    countryCodeController.text = player.countryCode;
+    position = player.position;
+    dominantFoot = player.dominantFoot;
+    birthDate = player.birthDate;
+    photoPath = player.photoPath;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Editar jugador'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Nombre'),
+              ),
+              TextField(
+                controller: surnameController,
+                decoration: const InputDecoration(labelText: 'Apellidos'),
+              ),
+              TextField(
+                controller: numberController,
+                decoration: const InputDecoration(labelText: 'Número'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: countryController,
+                decoration: const InputDecoration(labelText: 'País'),
+              ),
+              TextField(
+                controller: countryCodeController,
+                decoration: const InputDecoration(labelText: 'Código país (ej: ES, FR, BR)'),
+              ),
+              DropdownButton<String>(
+                value: position,
+                items: ['Portero', 'Defensa', 'Centrocampista', 'Delantero']
+                    .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      position = value;
+                    });
+                  }
+                },
+              ),
+              DropdownButton<String>(
+                value: dominantFoot,
+                items: ['Derecha', 'Izquierda', 'Ambas']
+                    .map((f) => DropdownMenuItem(value: f, child: Text(f)))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      dominantFoot = value;
+                    });
+                  }
+                },
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(birthDate == null
+                        ? 'Fecha de nacimiento'
+                        : '${birthDate!.day}/${birthDate!.month}/${birthDate!.year}'),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.calendar_today),
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: birthDate ?? DateTime(2010, 1, 1),
+                        firstDate: DateTime(1990),
+                        lastDate: DateTime(DateTime.now().year - 4),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          birthDate = picked;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(photoPath == null ? 'Sin foto' : 'Foto seleccionada'),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.photo_camera),
+                    onPressed: () async {
+                      // TODO: Implement photo picker
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              final surname = surnameController.text.trim();
+              final number = int.tryParse(numberController.text.trim()) ?? 0;
+              final country = countryController.text.trim();
+              final countryCode = countryCodeController.text.trim().toUpperCase();
+              if (name.isNotEmpty && number > 0 && birthDate != null && country.isNotEmpty && countryCode.isNotEmpty) {
+                setState(() {
+                  _players[index] = Player(
+                    number: number,
+                    name: name,
+                    position: position,
+                    dominantFoot: dominantFoot,
+                    birthDate: birthDate!,
+                    country: country,
+                    countryCode: countryCode,
+                    photoPath: photoPath,
+                    medicalNote: player.medicalNote,
+                    convocatorias: player.convocatorias,
+                  );
+                });
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _removePlayer(int index) {
     setState(() {
@@ -292,14 +356,18 @@ class _TeamScreenState extends State<TeamScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     // Datos premium de ejemplo
-    final String clubLogo = 'https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg';
-    final String clubCountry = 'España';
-    final String clubCountryCode = 'ES';
-    final String coachName = 'Carlo Ancelotti';
+
+    final String? clubLogoUrl = (widget.club.crestUrl?.isNotEmpty == true)
+      ? widget.club.crestUrl
+      : null;
+    final String clubName = widget.club.name;
+    final String clubCountry = widget.club.country ?? '';
+    final String clubCountryCode = (widget.club.country ?? 'ES').substring(0, 2).toUpperCase();
+    final String coachName = 'Carlo Ancelotti'; // TODO: Hacer dinámico si tienes datos de entrenador
     final int totalPlayers = _players.length;
     final int avgAge = _players.isNotEmpty
-        ? _players.map((p) => DateTime.now().year - p.birthDate.year).reduce((a, b) => a + b) ~/ _players.length
-        : 0;
+      ? _players.map((p) => DateTime.now().year - p.birthDate.year).reduce((a, b) => a + b) ~/ _players.length
+      : 0;
     final int totalMatches = _players.fold(0, (sum, p) => sum + p.convocatorias);
 
     return Scaffold(
@@ -335,9 +403,19 @@ class _TeamScreenState extends State<TeamScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 CircleAvatar(
-                  backgroundImage: NetworkImage(clubLogo),
                   radius: 38,
                   backgroundColor: Colors.grey[100],
+                  child: ClipOval(
+                    child: clubLogoUrl == null
+                        ? Icon(Icons.shield_outlined, size: 42, color: Colors.blueGrey[300])
+                        : Image.network(
+                            clubLogoUrl,
+                            width: 76,
+                            height: 76,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Icon(Icons.shield_outlined, size: 42, color: Colors.blueGrey[300]),
+                          ),
+                  ),
                 ),
                 const SizedBox(width: 20),
                 Expanded(

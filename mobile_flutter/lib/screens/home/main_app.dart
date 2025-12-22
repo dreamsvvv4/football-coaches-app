@@ -1,3 +1,4 @@
+import '../../services/club_registry.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/auth.dart';
@@ -84,10 +85,19 @@ class _MainAppState extends State<MainApp> {
 
   /// Build screens list based on role
   List<Widget> _buildScreens(UserRole role, int tabCount) {
+    final clubId = AuthService.instance.activeContext?.clubId;
+    final club = ClubRegistry.getClubById(clubId);
     final screens = <Widget>[
       const HomeDashboard(),
       const CalendarScreen(),
-      const TeamScreen(),
+      club != null
+          ? TeamScreen(club: club)
+          : const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('No hay club activo. Ve a Perfil para seleccionar un club.'),
+              ),
+            ),
       const FriendlyMatchScreen(),
       const ProfileScreen(),
     ];

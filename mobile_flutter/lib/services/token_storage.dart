@@ -10,21 +10,57 @@ class TokenStorage {
 
   TokenStorage._internal();
 
-  Future<void> saveToken(String token) => _storage.write(key: _key, value: token);
+  Future<void> saveToken(String token) async {
+    try {
+      await _storage.write(key: _key, value: token);
+    } catch (_) {}
+  }
 
-  Future<String?> readToken() => _storage.read(key: _key);
+  Future<String?> readToken() async {
+    try {
+      return await _storage.read(key: _key);
+    } catch (_) {
+      return null;
+    }
+  }
 
-  Future<void> deleteToken() => _storage.delete(key: _key);
+  Future<void> deleteToken() async {
+    try {
+      await _storage.delete(key: _key);
+    } catch (_) {}
+  }
 
-  Future<void> saveUserJson(String json) => _storage.write(key: _userKey, value: json);
+  Future<void> saveUserJson(String json) async {
+    try {
+      await _storage.write(key: _userKey, value: json);
+    } catch (_) {}
+  }
 
-  Future<String?> readUserJson() => _storage.read(key: _userKey);
+  Future<String?> readUserJson() async {
+    try {
+      return await _storage.read(key: _userKey);
+    } catch (_) {
+      return null;
+    }
+  }
 
-  Future<void> deleteUserJson() => _storage.delete(key: _userKey);
+  Future<void> deleteUserJson() async {
+    try {
+      await _storage.delete(key: _userKey);
+    } catch (_) {}
+  }
 
-    Future<void> saveOnboardingJson(String userId, String json) =>
-      _storage.write(key: '$_onboardingPrefix$userId', value: json);
+  Future<void> saveOnboardingJson(String userId, String json) async {
+    try {
+      await _storage.write(key: '$_onboardingPrefix$userId', value: json);
+    } catch (_) {}
+  }
 
-    Future<String?> readOnboardingJson(String userId) =>
-      _storage.read(key: '$_onboardingPrefix$userId');
+  Future<String?> readOnboardingJson(String userId) async {
+    try {
+      return await _storage.read(key: '$_onboardingPrefix$userId');
+    } catch (_) {
+      return null;
+    }
+  }
 }

@@ -8,6 +8,7 @@ import '../utils/event_style.dart';
 import '../utils/time_range.dart';
 import '../widgets/event_details_sheet.dart';
 import '../widgets/premium_empty_state.dart';
+import '../services/auth_service.dart';
 import '../services/permission_service.dart';
 import 'event_creation_screen.dart';
 import '../utils/time_format.dart';
@@ -69,6 +70,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           final start = range['start']!;
           final end = range['end']!;
           final filtered = agendaItems.where((it) => it.when.isAfter(start) && it.when.isBefore(end)).toList();
+          filtered.sort((a, b) => a.when.compareTo(b.when));
           final events = filtered.map((it) => _mapAgendaToCalendarEvent(it)).toList();
           final content = <Widget>[
             CalendarWithEvents(
@@ -104,7 +106,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                       fontWeight: FontWeight.w700,
                                     ),
                               ),
-                              if (PermissionService.instance.canRecordMatch())
+                              if (PermissionService.canRecordMatch(AuthService.instance.activeContext))
                                 TextButton.icon(
                                   onPressed: () async {
                                     final created = await Navigator.of(context).push<bool>(
@@ -124,7 +126,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           const SizedBox(height: AppTheme.spaceMd),
                           if (dayEvents.isEmpty)
                             PremiumEmptyState(
-                              onCreate: PermissionService.instance.canRecordMatch()
+                              onCreate: PermissionService.canRecordMatch(AuthService.instance.activeContext)
                                   ? () async {
                                       final created = await Navigator.of(context).push<bool>(
                                         MaterialPageRoute(
@@ -218,6 +220,61 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   );
                 },
             ),
+            const SizedBox(height: AppTheme.spaceLg),
+            Text(
+              'Próximos eventos',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: AppTheme.spaceMd),
+            if (filtered.isEmpty)
+              Text(
+                'No hay eventos próximos en el rango actual.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
+              )
+            else
+              ...filtered.take(6).map((item) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppTheme.spaceMd),
+                  child: Card(
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: EventStyle.colorFor(item).withValues(alpha: 0.12),
+                        child: Icon(EventStyle.iconFor(item), color: EventStyle.colorFor(item)),
+                      ),
+                      title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(item.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radius2xl)),
+                          ),
+                          builder: (_) => EventDetailsSheet(
+                            item: item,
+                            onViewMore: () {
+                              if (item.matchId != null) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => MatchDetailScreen(matchId: item.matchId!),
+                                  ),
+                                );
+                              } else {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const UpcomingFeatureScreen(),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              }),
           ];
 
           if (events.isEmpty) {
@@ -226,7 +283,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             );
             content.add(
               PremiumEmptyState(
-                onCreate: PermissionService.instance.canRecordMatch()
+                onCreate: PermissionService.canRecordMatch(AuthService.instance.activeContext)
                     ? () async {
                         final created = await Navigator.of(context).push<bool>(
                           MaterialPageRoute(

@@ -11,6 +11,8 @@ void main() {
   group('MatchDetailScreen Real-Time Updates Tests', () {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      await AuthService.init(prefs);
 
       // Set up mock user
       final mockUser = User(
@@ -103,6 +105,8 @@ void main() {
 
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(find.text('Cronología'), 300);
+
       // Get initial timeline length
       final initialText = find.text('Cronología');
       expect(initialText, findsOneWidget);
@@ -119,8 +123,10 @@ void main() {
 
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(find.text('Cronología'), 300);
+
       // Coach should see add event button
-      expect(find.byIcon(Icons.add), findsWidgets);
+      expect(find.text('Añadir evento'), findsOneWidget);
     });
 
     testWidgets('Add event dialog appears when button is tapped', (WidgetTester tester) async {
@@ -163,6 +169,17 @@ void main() {
 
     testWidgets('Timeline shows goal icon in event list', (WidgetTester tester) async {
       await MatchService.instance.fetchMatch('match_7');
+      MatchService.instance.addEvent(
+        'match_7',
+        MatchEvent(
+          minute: "10'",
+          type: 'goal',
+          description: 'Gol',
+          team: 'home',
+          player: 'Jugador 1',
+          recordedAt: DateTime.now(),
+        ),
+      );
 
       await tester.pumpWidget(
         const MaterialApp(
@@ -172,6 +189,8 @@ void main() {
 
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(find.text('Cronología'), 300);
+
       // Soccer/goal icon should be present
       expect(find.byIcon(Icons.sports_soccer), findsWidgets);
     });
@@ -179,6 +198,17 @@ void main() {
     testWidgets('Yellow card shows amber icon', (WidgetTester tester) async {
       // Create match with yellow card event
       await MatchService.instance.fetchMatch('match_8');
+      MatchService.instance.addEvent(
+        'match_8',
+        MatchEvent(
+          minute: "20'",
+          type: 'yellow_card',
+          description: 'Tarjeta amarilla',
+          team: 'home',
+          player: 'Jugador 2',
+          recordedAt: DateTime.now(),
+        ),
+      );
       
       await tester.pumpWidget(
         const MaterialApp(
@@ -188,12 +218,25 @@ void main() {
 
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(find.text('Cronología'), 300);
+
       // Amber icon should appear for yellow card
       expect(find.byIcon(Icons.square_foot), findsWidgets);
     });
 
     testWidgets('Red card shows red icon', (WidgetTester tester) async {
       await MatchService.instance.fetchMatch('match_9');
+      MatchService.instance.addEvent(
+        'match_9',
+        MatchEvent(
+          minute: "30'",
+          type: 'red_card',
+          description: 'Tarjeta roja',
+          team: 'away',
+          player: 'Jugador 3',
+          recordedAt: DateTime.now(),
+        ),
+      );
 
       await tester.pumpWidget(
         const MaterialApp(
@@ -202,6 +245,8 @@ void main() {
       );
 
       await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Cronología'), 300);
 
       // Red report icon should appear
       expect(find.byIcon(Icons.report), findsWidgets);
@@ -232,6 +277,8 @@ void main() {
       );
 
       await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Cronología'), 300);
 
       // Finish button (flag icon) should be present
       expect(find.byIcon(Icons.flag), findsWidgets);
@@ -264,9 +311,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Add event button should not be visible for fan
-      final addButtons = find.byIcon(Icons.add);
-      // Should be minimal or no add buttons visible (only refresh)
-      expect(addButtons, findsWidgets);
+      expect(find.text('Añadir evento'), findsNothing);
+      expect(find.byIcon(Icons.add), findsNothing);
     });
 
     testWidgets('Lineup section displays teams correctly', (WidgetTester tester) async {

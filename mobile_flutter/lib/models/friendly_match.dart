@@ -45,6 +45,7 @@ class FriendlyMatch {
   final String opponentClub;
   final String? opponentContact;
   final String location;
+  final double? distanceKm;
   final DateTime scheduledAt;
   final String category;
   final FriendlyMatchStatus status;
@@ -57,6 +58,7 @@ class FriendlyMatch {
     required this.id,
     required this.opponentClub,
     required this.location,
+    this.distanceKm,
     required this.scheduledAt,
     required this.category,
     required this.status,
@@ -72,6 +74,7 @@ class FriendlyMatch {
     String? opponentClub,
     String? opponentContact,
     String? location,
+    double? distanceKm,
     DateTime? scheduledAt,
     String? category,
     FriendlyMatchStatus? status,
@@ -85,6 +88,7 @@ class FriendlyMatch {
       opponentClub: opponentClub ?? this.opponentClub,
       opponentContact: opponentContact ?? this.opponentContact,
       location: location ?? this.location,
+      distanceKm: distanceKm ?? this.distanceKm,
       scheduledAt: scheduledAt ?? this.scheduledAt,
       category: category ?? this.category,
       status: status ?? this.status,
@@ -100,6 +104,7 @@ class FriendlyMatch {
       id: id,
       opponentClub: map['opponentClub'] ?? 'Rival por definir',
       location: map['location'] ?? 'Ubicación por definir',
+      distanceKm: (map['distanceKm'] is num) ? (map['distanceKm'] as num).toDouble() : null,
       scheduledAt: (map['scheduledAt'] as Timestamp).toDate(),
       category: map['category'] ?? 'General',
       status: friendlyMatchStatusFromString(map['status']),
@@ -116,6 +121,7 @@ class FriendlyMatch {
       'id': id,
       'opponentClub': opponentClub,
       'location': location,
+      'distanceKm': distanceKm,
       'scheduledAt': Timestamp.fromDate(scheduledAt),
       'category': category,
       'status': status.internalName,
@@ -137,6 +143,7 @@ class FriendlyMatch {
       'opponentClub': opponentClub,
       'opponentContact': opponentContact,
       'location': location,
+      'distanceKm': distanceKm,
       'scheduledAt': scheduledAt.toIso8601String(),
       'category': category,
       'status': status.internalName,
@@ -153,6 +160,7 @@ class FriendlyMatch {
       opponentClub: json['opponentClub'] as String? ?? 'Rival por definir',
       opponentContact: json['opponentContact'] as String?,
       location: json['location'] as String? ?? 'Ubicación por definir',
+      distanceKm: (json['distanceKm'] is num) ? (json['distanceKm'] as num).toDouble() : null,
       scheduledAt: DateTime.parse(json['scheduledAt'] as String),
       category: json['category'] as String? ?? 'General',
       status: friendlyMatchStatusFromString(json['status'] as String?),

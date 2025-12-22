@@ -173,7 +173,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   if (_currentPage < _pages.length - 1)
                     Center(
                       child: TextButton(
-                        onPressed: _completeOnboarding,
+                        onPressed: () {
+                          _pageController.animateToPage(
+                            _pages.length - 1,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
                         child: Text(
                           'Skip',
                           style: TextStyle(color: colorScheme.outline),

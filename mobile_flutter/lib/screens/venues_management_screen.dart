@@ -32,8 +32,9 @@ class _VenuesManagementScreenState extends State<VenuesManagementScreen> {
   bool get _canManageVenues {
     final user = AuthService.instance.currentUser;
     if (user == null) return false;
-    final allowedRoles = {'coach', 'club_admin', 'superadmin'};
-    return allowedRoles.contains(user.role);
+
+    final roleName = user.role.name.toLowerCase();
+    return roleName == 'coach' || roleName == 'staff' || roleName == 'superadmin';
   }
 
   void _filterVenues(String query) {

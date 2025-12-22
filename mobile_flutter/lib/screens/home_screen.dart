@@ -3,6 +3,9 @@ import 'convocatoria_flow_screen.dart';
 import '../services/auth_service.dart';
 import '../services/agenda_service.dart';
 import '../services/match_service.dart';
+import '../services/permission_service.dart';
+import '../models/permissions.dart';
+import '../services/club_registry.dart';
 import '../widgets/notification_indicator.dart';
 import 'match_detail_screen.dart';
 import 'team_screen.dart';
@@ -58,36 +61,29 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<_TabItem> get _tabs {
-    var role = AuthService.instance.currentUser?.role;
-    late String roleStr;
-    
-    if (role is Enum) {
-      roleStr = role.toString().split('.').last.toLowerCase();
-    } else {
-      roleStr = (role?.toString() ?? 'coach').toLowerCase();
-    }
-    
-    final visible = AuthService.instance.getVisibleTabsForRole(roleStr);
-    // Asegurar que haya al menos una pestaña válida y clavar perfil si no hay ninguna
+    // Centralizado: permisos premium
+    final user = AuthService.instance.currentUser;
+    final context = AuthService.instance.activeContext; // Puede ser null
+    final perms = PermissionService.getPermissionsForContext(context);
     final items = <_TabItem>[];
-    if (visible.contains('home')) {
+    if (perms.contains(Permission.viewEvents)) {
       items.add(_TabItem(label: 'Inicio', icon: Icons.home_outlined, selectedIcon: Icons.home, content: _HomeDashboard(onAgendaTap: _handleAgendaTap)));
     }
-    if (visible.contains('team')) {
-      items.add(const _TabItem(label: 'Equipo', icon: Icons.people_outline, selectedIcon: Icons.people, content: TeamScreen()));
+    if (perms.contains(Permission.viewTeam)) {
+      final clubId = AuthService.instance.activeContext?.clubId;
+      final club = ClubRegistry.getClubById(clubId) ?? (ClubRegistry.clubs.isNotEmpty ? ClubRegistry.clubs.first : null);
+      if (club != null) {
+        items.add(_TabItem(label: 'Equipo', icon: Icons.people_outline, selectedIcon: Icons.people, content: TeamScreen(club: club)));
+      }
     }
-    if (visible.contains('friendlies')) {
+    if (perms.contains(Permission.manageFriendly) || perms.contains(Permission.createFriendlyRequest)) {
       items.add(const _TabItem(label: 'Amistosos', icon: Icons.handshake_outlined, selectedIcon: Icons.handshake, content: FriendlyMatchScreen()));
     }
     // Torneos deshabilitado por feature flag
-    // if (visible.contains('tournaments')) {
+    // if (perms.contains(Permission.manageTournaments)) {
     //   items.add(const _TabItem(label: 'Torneos', icon: Icons.emoji_events_outlined, selectedIcon: Icons.emoji_events, content: TournamentScreen()));
     // }
-    if (visible.contains('chat')) {
-      items.add(const _TabItem(label: 'Chat', icon: Icons.chat_bubble_outline, selectedIcon: Icons.chat_bubble, content: ChatScreen()));
-    }
-    // Forzar perfil visible si no hay ninguna pestaña o si el usuario lo desactivó accidentalmente
-    if (visible.contains('profile') || items.isEmpty) {
+    if (perms.contains(Permission.viewPersonalStats) || items.isEmpty) {
       items.add(const _TabItem(label: 'Perfil', icon: Icons.person_outline, selectedIcon: Icons.person, content: ProfileScreen()));
     }
     return items;
@@ -175,6 +171,7 @@ class _HomeDashboardState extends State<_HomeDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final perms = PermissionService.getPermissionsForContext(AuthService.instance.activeContext);
     var role = AuthService.instance.currentUser?.role;
     late String roleStr;
     if (role is Enum) {
@@ -328,7 +325,16 @@ class _QuickActions extends StatelessWidget {
       _QuickActionData(
         label: 'Mi equipo',
         icon: Icons.people,
-        builder: (_) => const TeamScreen(),
+        builder: (_) {
+          final clubId = AuthService.instance.activeContext?.clubId;
+          final club = ClubRegistry.getClubById(clubId) ?? (ClubRegistry.clubs.isNotEmpty ? ClubRegistry.clubs.first : null);
+          if (club == null) {
+            return const Scaffold(
+              body: Center(child: Text('No hay un club seleccionado.')),
+            );
+          }
+          return TeamScreen(club: club);
+        },
       ),
       _QuickActionData(
         label: 'Amistosos',
@@ -494,9 +500,6 @@ class _AgendaTile extends StatelessWidget {
   final String timeLabel;
   final String subtitle;
   final String relative;
-  final String? score;
-  final String? chipLabel;
-  final Color? chipColor;
   final int index;
   final VoidCallback onTap;
 
@@ -506,9 +509,6 @@ class _AgendaTile extends StatelessWidget {
     required this.timeLabel,
     required this.subtitle,
     required this.relative,
-    this.score,
-    this.chipLabel,
-    this.chipColor,
     required this.index,
     required this.onTap,
   });
@@ -516,22 +516,6 @@ class _AgendaTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trailing = <Widget>[];
-    if (chipLabel != null && chipColor != null) {
-      trailing.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: chipColor,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            chipLabel!,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-        ),
-      );
-      trailing.add(const SizedBox(height: 8));
-    }
     trailing.add(
       CircleAvatar(
         radius: 12,
@@ -574,10 +558,6 @@ class _AgendaTile extends StatelessWidget {
                       '$timeLabel · $subtitle',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.72)),
                     ),
-                    if (score != null) ...[
-                      const SizedBox(height: 4),
-                      Text('Marcador: $score', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.72))),
-                    ],
                     const SizedBox(height: 8),
                     Text(relative, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.6))),
                   ],
