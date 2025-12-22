@@ -23,6 +23,16 @@ class MainApp extends StatefulWidget {
 class _MainAppState extends State<MainApp> {
   int _selectedIndex = 0;
 
+  Widget _navIcon(IconData icon, String label) {
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        label: label,
+        child: Icon(icon),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthService>(
@@ -53,9 +63,11 @@ class _MainAppState extends State<MainApp> {
               });
             },
             destinations: tabs.map((tab) {
+              final label = tab['label'] as String;
+              final icon = tab['icon'] as IconData;
               return NavigationDestination(
-                icon: Icon(tab['icon'] as IconData),
-                label: tab['label'] as String,
+                icon: _navIcon(icon, label),
+                label: label,
               );
             }).toList(),
           ),

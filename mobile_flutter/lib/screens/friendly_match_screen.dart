@@ -77,7 +77,9 @@ class _FriendlyMatchScreenState extends State<FriendlyMatchScreen> {
     }
     if (_distanceFilterKm != null) {
       final maxKm = _distanceFilterKm!.toDouble();
-      filtered = filtered.where((m) => (m.distanceKm ?? double.infinity) <= maxKm);
+      // If a match has no distance provided, keep it visible.
+      // Otherwise distance filtering can hide newly created matches and looks like "Proponer" failed.
+      filtered = filtered.where((m) => m.distanceKm == null || m.distanceKm! <= maxKm);
     }
     if (_searchQuery.isNotEmpty) {
       filtered = filtered.where((m) {

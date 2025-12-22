@@ -43,16 +43,20 @@ class _FifaCalendarBackground extends StatelessWidget {
   const _FifaCalendarBackground();
   @override
   Widget build(BuildContext context) {
+    // Keep the background extremely subtle. On web/desktop the previous
+    // gradient reduced contrast and made day labels hard to read.
     final colors = AppTheme.heroGradient.colors
-        .map((c) => c.withValues(alpha: 0.22))
+        .map((c) => c.withValues(alpha: 0.06))
         .toList(growable: false);
     return Positioned.fill(
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: AppTheme.heroGradient.begin,
-            end: AppTheme.heroGradient.end,
-            colors: colors,
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: AppTheme.heroGradient.begin,
+              end: AppTheme.heroGradient.end,
+              colors: colors,
+            ),
           ),
         ),
       ),
@@ -73,7 +77,7 @@ class _CalendarViewState extends State<CalendarView> {
 
   @override
   Widget build(BuildContext context) {
-    final surface = Theme.of(context).colorScheme.surface;
+    final scheme = Theme.of(context).colorScheme;
     return Stack(
       children: [
         const _FifaCalendarBackground(),
@@ -82,7 +86,7 @@ class _CalendarViewState extends State<CalendarView> {
           child: Container(
             padding: const EdgeInsets.all(AppTheme.spaceMd),
             decoration: BoxDecoration(
-              color: surface.withValues(alpha: 0.92),
+              color: scheme.surface.withValues(alpha: 0.96),
               borderRadius: BorderRadius.circular(AppTheme.radiusLg),
               boxShadow: AppTheme.shadowSm,
             ),
@@ -106,17 +110,18 @@ class _CalendarViewState extends State<CalendarView> {
 
   Widget _buildHeader() {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final months = const [
       'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
     ];
 
     return Container(
-      padding: const EdgeInsets.all(AppTheme.spaceLg),
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd, vertical: AppTheme.spaceSm),
       decoration: BoxDecoration(
-        gradient: AppTheme.primaryGradient,
+        color: scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        boxShadow: AppTheme.shadowMd,
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -128,21 +133,19 @@ class _CalendarViewState extends State<CalendarView> {
               });
             },
             child: Container(
-              width: 40,
-              height: 40,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
+                color: scheme.surfaceContainerHigh,
                 shape: BoxShape.circle,
+                border: Border.all(color: scheme.outlineVariant),
               ),
-              child: const Icon(Icons.chevron_left, color: Colors.white),
+              child: Icon(Icons.chevron_left, color: scheme.onSurface),
             ),
           ),
           Text(
             '${months[_currentMonth.month - 1]} ${_currentMonth.year}',
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           InkWell(
             onTap: () {
@@ -151,13 +154,14 @@ class _CalendarViewState extends State<CalendarView> {
               });
             },
             child: Container(
-              width: 40,
-              height: 40,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
+                color: scheme.surfaceContainerHigh,
                 shape: BoxShape.circle,
+                border: Border.all(color: scheme.outlineVariant),
               ),
-              child: const Icon(Icons.chevron_right, color: Colors.white),
+              child: Icon(Icons.chevron_right, color: scheme.onSurface),
             ),
           ),
         ],
@@ -167,6 +171,7 @@ class _CalendarViewState extends State<CalendarView> {
 
   Widget _buildWeekDays() {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
     return Row(
@@ -177,7 +182,7 @@ class _CalendarViewState extends State<CalendarView> {
             child: Text(
               day,
               style: theme.textTheme.labelMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.82),
+                color: scheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -321,6 +326,7 @@ class _DayCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final isPast = date.isBefore(DateTime.now().subtract(const Duration(days: 1)));
     final baseColor = matchColor ?? AppTheme.primaryGreen;
     final bgColor = hasMatch
@@ -331,6 +337,16 @@ class _DayCell extends StatelessWidget {
     final border = isToday && !isSelected
         ? Border.all(color: AppTheme.primaryGreen, width: 2)
         : null;
+
+    final Color dayTextColor;
+    if (isSelected) {
+      dayTextColor = scheme.onPrimary;
+    } else if (isPast) {
+      dayTextColor = scheme.onSurfaceVariant.withValues(alpha: 0.65);
+    } else {
+      dayTextColor = scheme.onSurface;
+    }
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
@@ -358,11 +374,7 @@ class _DayCell extends StatelessWidget {
                     Text(
                       '$day',
                       style: theme.textTheme.labelLarge?.copyWith(
-                        color: isSelected
-                            ? Colors.white
-                            : isPast
-                                ? Colors.white.withValues(alpha: 0.52)
-                                : Colors.white.withValues(alpha: 0.92),
+                        color: dayTextColor,
                         fontWeight: isSelected || isToday ? FontWeight.w700 : FontWeight.w500,
                       ),
                     ),

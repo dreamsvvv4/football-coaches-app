@@ -35,6 +35,7 @@ migrate_working_dir/
 
 # Local test artifacts
 .test_output.txt
+.test_output_*.txt
 test_output.txt
 flutter_test_result.txt
 flutter_test_final.txt

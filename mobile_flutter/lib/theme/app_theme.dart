@@ -331,6 +331,18 @@ class AppTheme {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         indicatorColor: primaryGreen.withValues(alpha: 0.12),
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return primaryGreen.withValues(alpha: 0.18);
+          }
+          if (states.contains(WidgetState.focused)) {
+            return primaryGreen.withValues(alpha: 0.14);
+          }
+          if (states.contains(WidgetState.hovered)) {
+            return primaryGreen.withValues(alpha: 0.10);
+          }
+          return null;
+        }),
         labelTextStyle: WidgetStateProperty.all(
           textTheme.labelMedium?.copyWith(
             fontWeight: FontWeight.w600,
@@ -514,6 +526,18 @@ class AppTheme {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         indicatorColor: secondaryTeal.withValues(alpha: 0.24),
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return secondaryTeal.withValues(alpha: 0.28);
+          }
+          if (states.contains(WidgetState.focused)) {
+            return secondaryTeal.withValues(alpha: 0.22);
+          }
+          if (states.contains(WidgetState.hovered)) {
+            return secondaryTeal.withValues(alpha: 0.16);
+          }
+          return null;
+        }),
         labelTextStyle: WidgetStateProperty.all(
           textTheme.labelMedium?.copyWith(
             fontWeight: FontWeight.w600,
